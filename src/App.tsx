@@ -135,11 +135,17 @@ const App: React.FC = () => {
       getAllFolders(),
       getAllTags(),
     ]);
-    setDocs(docsList);
+    // Ensure all docs have tags and folderId fields (backward compat with old data)
+    const migratedDocs = docsList.map(d => ({
+      ...d,
+      tags: Array.isArray(d.tags) ? d.tags : [],
+      folderId: d.folderId ?? null,
+    }));
+    setDocs(migratedDocs);
     setFolders(foldersList);
     setAllTags(tags);
-    if (docsList.length > 0 && !activeDocId) {
-      selectDoc(docsList[0].id);
+    if (migratedDocs.length > 0 && !activeDocId) {
+      selectDoc(migratedDocs[0].id);
     }
   };
 
@@ -596,7 +602,7 @@ const App: React.FC = () => {
             <div style={{ padding: '6px 12px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: 8, background: 'var(--toolbar-bg)' }}>
               <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>标签：</span>
               <div className="tag-editor">
-                {activeDoc.tags.map(tag => (
+                {(activeDoc.tags || []).map(tag => (
                   <span key={tag} className="tag-editor-chip">
                     {tag}
                     <span className="tag-editor-remove" onClick={() => removeTagFromDoc(tag)}>×</span>
