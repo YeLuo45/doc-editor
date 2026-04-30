@@ -406,18 +406,22 @@ const App: React.FC = () => {
       <header className="app-header">
         <span className="app-title">{t('appTitle')}</span>
         <div style={{ position: 'relative', flex: 1, maxWidth: 400 }}>
-          <input
-            className="modal-input"
-            style={{ marginBottom: 0, width: '100%' }}
-            value={searchQuery}
-            onChange={e => handleSearchChange(e.target.value)}
-            onFocus={() => { if (searchResults.length > 0) setShowSearchResults(true); }}
-            onKeyDown={e => {
-              if (e.key === 'Escape') { setShowSearchResults(false); setSearchQuery(''); }
-            }}
-            placeholder="搜索文档标题和内容..."
-          />
-          {showSearchResults && searchResults.length > 0 && (
+            <div style={{ display: 'flex', gap: 4 }}>
+              <input
+                className="modal-input"
+                style={{ marginBottom: 0, flex: 1 }}
+                value={searchQuery}
+                onChange={e => handleSearchChange(e.target.value)}
+                onFocus={() => { if (searchResults.length > 0) setShowSearchResults(true); }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') performSearch(searchQuery);
+                  if (e.key === 'Escape') { setShowSearchResults(false); setSearchQuery(''); }
+                }}
+                placeholder="搜索文档标题和内容..."
+              />
+              <button className="btn btn-icon" onClick={() => { performSearch(searchQuery); setShowSearchResults(true); }} type="button" title="搜索">🔍</button>
+            </div>
+            {showSearchResults && searchResults.length > 0 && (
             <div className="context-menu" style={{ left: 0, right: 0, top: '100%', marginTop: 4, maxHeight: 320, overflowY: 'auto' }}>
               {searchResults.map(r => (
                 <button
