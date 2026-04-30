@@ -47,7 +47,7 @@ export async function getDocsByTag(tag: string): Promise<Doc[]> {
   const db = await getDB();
   const all = await db.getAll('docs');
   return all
-    .filter(d => d.tags.includes(tag))
+    .filter(d => Array.isArray(d.tags) && d.tags.includes(tag))
     .sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
@@ -135,8 +135,10 @@ export async function getAllTags(): Promise<string[]> {
   const docs = await db.getAll('docs');
   const tagSet = new Set<string>();
   for (const doc of docs) {
-    for (const tag of doc.tags) {
-      tagSet.add(tag);
+    if (Array.isArray(doc.tags)) {
+      for (const tag of doc.tags) {
+        tagSet.add(tag);
+      }
     }
   }
   return Array.from(tagSet).sort();
