@@ -69,8 +69,12 @@ const App: React.FC = () => {
   const [tagInput, setTagInput] = useState('');
   const [showTagInput, setShowTagInput] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; docId: string } | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<{ id: string; title: string; snippet: string; folderId: string | null }[]>([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const historyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const editor = useEditor({
     extensions: [
@@ -265,6 +269,50 @@ const App: React.FC = () => {
     setShowMoveMenu(true);
   };
 
+  // ---- Search ----
+  const performSearch = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      setShowSearchResults(false);
+      return;
+    }
+    const lowerQuery = query.toLowerCase();
+    const allDocs = await getAllDocs();
+    const results: { id: string; title: string; snippet: string; folderId: string | null }[] = [];
+    for (const doc of allDocs) {
+      // Strip HTML tags for text search
+      const textContent = doc.content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      const titleMatch = doc.title.toLowerCase().includes(lowerQuery);
+      const bodyMatch = textContent.toLowerCase().includes(lowerQuery);
+      if (titleMatch || bodyMatch) {
+        let snippet = '';
+        if (bodyMatch) {
+          const idx = textContent.toLowerCase().indexOf(lowerQuery);
+          const start = Math.max(0, idx - 30);
+          const end = Math.min(textContent.length, idx + query.length + 50);
+          snippet = (start > 0 ? '...' : '') + textContent.slice(start, end) + (end < textContent.length ? '...' : '');
+        } else {
+          snippet = textContent.slice(0, 80) + (textContent.length > 80 ? '...' : '');
+        }
+        results.push({ id: doc.id, title: doc.title, snippet, folderId: doc.folderId });
+      }
+    }
+    setSearchResults(results.slice(0, 10));
+    setShowSearchResults(true);
+  }, []);
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => performSearch(value), 300);
+  };
+
+  const selectSearchResult = (docId: string) => {
+    selectDoc(docId);
+    setShowSearchResults(false);
+    setSearchQuery('');
+  };
+
   // ---- Folder operations ----
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return;
@@ -351,6 +399,36 @@ const App: React.FC = () => {
       {/* Header */}
       <header className="app-header">
         <span className="app-title">{t('appTitle')}</span>
+        <div style={{ position: 'relative', flex: 1, maxWidth: 400 }}>
+          <input
+            className="modal-input"
+            style={{ marginBottom: 0, width: '100%' }}
+            value={searchQuery}
+            onChange={e => handleSearchChange(e.target.value)}
+            onFocus={() => { if (searchResults.length > 0) setShowSearchResults(true); }}
+            onKeyDown={e => {
+              if (e.key === 'Escape') { setShowSearchResults(false); setSearchQuery(''); }
+            }}
+            placeholder="搜索文档标题和内容..."
+          />
+          {showSearchResults && searchResults.length > 0 && (
+            <div className="context-menu" style={{ left: 0, right: 0, top: '100%', marginTop: 4, maxHeight: 320, overflowY: 'auto' }}>
+              {searchResults.map(r => (
+                <button
+                  key={r.id}
+                  className="context-menu-item"
+                  onClick={() => selectSearchResult(r.id)}
+                  style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}
+                >
+                  <span style={{ fontWeight: 500 }}>{r.title}</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
+                    {r.folderId ? `📂 ${folders.find(f => f.id === r.folderId)?.name || ''} — ` : ''}{r.snippet}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <div className="header-actions">
           <button className="btn btn-primary" onClick={createNewDoc} type="button">+ {t('newDoc')}</button>
           <div className="dropdown">
