@@ -11,6 +11,7 @@ import { common, createLowlight } from 'lowlight';
 import { v4 as uuidv4 } from 'uuid';
 import { Doc, Folder, DocStatus } from './types';
 import { managerAgent } from './agents/manager';
+import { contextPool } from './agents/context';
 import {
   getAllDocs, getDocsByFolder, getDocsByTag, getDoc, saveDoc, deleteDoc,
   getHistory, addHistory, clearOldHistory,
@@ -183,6 +184,20 @@ const App: React.FC = () => {
       editor.commands.setContent(doc.content);
       setActiveDocId(id);
       setWordCount(countWords(editor.getText()));
+
+      // Initialize or resume ManagerAgent conversation for this document
+      if (!conversationId) {
+        const convId = await managerAgent.start();
+        setConversationId(convId);
+      }
+
+      // Sync docStatus from context if exists
+      const status = managerAgent.getWorkflowStatus(conversationId!);
+      if (status) {
+        setDocStatus(status);
+      } else {
+        setDocStatus(DocStatus.DRAFT);
+      }
     }
   };
 
@@ -195,10 +210,17 @@ const App: React.FC = () => {
       const updated = { ...existing, content, updatedAt: Date.now() };
       await saveDoc(updated);
       setDocs(prev => prev.map(d => d.id === activeDocId ? updated : d));
+
+      // Sync content to ManagerAgent context
+      if (conversationId) {
+        contextPool.updateContext(conversationId, {
+          metadata: { ...contextPool.getContext(conversationId)?.metadata, lastContent: content }
+        });
+      }
     }
     setSaveStatus('saved');
     setTimeout(() => setSaveStatus('idle'), 2000);
-  }, [activeDocId, editor]);
+  }, [activeDocId, editor, conversationId]);
 
   const scheduleAutoSave = () => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
