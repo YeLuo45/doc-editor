@@ -9,7 +9,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import { common, createLowlight } from 'lowlight';
 import { v4 as uuidv4 } from 'uuid';
-import { Doc, Folder } from './types';
+import { Doc, Folder, DocStatus } from './types';
 import {
   getAllDocs, getDocsByFolder, getDocsByTag, getDoc, saveDoc, deleteDoc,
   getHistory, addHistory, clearOldHistory,
@@ -72,9 +72,18 @@ const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<{ id: string; title: string; snippet: string; folderId: string | null }[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
+  const [docStatus, setDocStatus] = useState<DocStatus>(DocStatus.DRAFT);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const historyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Doc status label for UI
+  const docStatusLabel = docStatus === DocStatus.DRAFT ? t('draft') :
+    docStatus === DocStatus.IN_REVIEW ? t('inReview') :
+    docStatus === DocStatus.REVISED ? t('revised') :
+    docStatus === DocStatus.APPROVED ? t('approved') :
+    docStatus === DocStatus.PUBLISHED ? t('published') :
+    docStatus === DocStatus.REJECTED ? t('rejected') : t('draft');
 
   const editor = useEditor({
     extensions: [
@@ -641,6 +650,7 @@ const App: React.FC = () => {
               {activeDoc?.folderId && (
                 <span>📂 {folders.find(f => f.id === activeDoc.folderId)?.name || t('rootFolder')}</span>
               )}
+              <span className="doc-status-badge">📋 {docStatusLabel}</span>
             </div>
             <div className="status-right">
               <span>{saveStatus === 'saving' ? t('saving') : saveStatus === 'saved' ? t('saved') : ''}</span>

@@ -1,3 +1,7 @@
+// Type exports for doc-editor
+
+export * from './agent';
+
 export interface Doc {
   id: string;
   title: string;
