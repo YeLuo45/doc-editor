@@ -10,6 +10,7 @@ import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import { common, createLowlight } from 'lowlight';
 import { v4 as uuidv4 } from 'uuid';
 import { Doc, Folder, DocStatus } from './types';
+import { managerAgent } from './agents/manager';
 import {
   getAllDocs, getDocsByFolder, getDocsByTag, getDoc, saveDoc, deleteDoc,
   getHistory, addHistory, clearOldHistory,
@@ -73,6 +74,7 @@ const App: React.FC = () => {
   const [searchResults, setSearchResults] = useState<{ id: string; title: string; snippet: string; folderId: string | null }[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [docStatus, setDocStatus] = useState<DocStatus>(DocStatus.DRAFT);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const historyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -384,6 +386,43 @@ const App: React.FC = () => {
     } else if (type === 'pdf') await exportToPDF(editor);
   };
 
+  // ---- Workflow actions (Manager Agent integration) ----
+  const handleSubmitForReview = async () => {
+    if (!activeDocId) return;
+    if (!conversationId) {
+      const convId = await managerAgent.start();
+      setConversationId(convId);
+    }
+    const result = await managerAgent.transitionState(conversationId!, 'submit');
+    if (result.success) {
+      setDocStatus(result.to);
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!conversationId) return;
+    const result = await managerAgent.transitionState(conversationId, 'approve');
+    if (result.success) {
+      setDocStatus(result.to);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!conversationId) return;
+    const result = await managerAgent.transitionState(conversationId, 'reject');
+    if (result.success) {
+      setDocStatus(result.to);
+    }
+  };
+
+  const handlePublish = async () => {
+    if (!conversationId) return;
+    const result = await managerAgent.transitionState(conversationId, 'publish');
+    if (result.success) {
+      setDocStatus(result.to);
+    }
+  };
+
   const addLink = () => {
     const url = window.prompt('URL:');
     if (url) editor?.chain().focus().setLink({ href: url }).run();
@@ -651,6 +690,18 @@ const App: React.FC = () => {
                 <span>📂 {folders.find(f => f.id === activeDoc.folderId)?.name || t('rootFolder')}</span>
               )}
               <span className="doc-status-badge">📋 {docStatusLabel}</span>
+              {docStatus === DocStatus.DRAFT && (
+                <button className="btn btn-sm" onClick={handleSubmitForReview} type="button">{t('submitForReview')}</button>
+              )}
+              {docStatus === DocStatus.IN_REVIEW && (
+                <>
+                  <button className="btn btn-sm btn-primary" onClick={handleApprove} type="button">{t('approve')}</button>
+                  <button className="btn btn-sm btn-danger" onClick={handleReject} type="button">{t('reject')}</button>
+                </>
+              )}
+              {docStatus === DocStatus.APPROVED && (
+                <button className="btn btn-sm btn-primary" onClick={handlePublish} type="button">{t('publish')}</button>
+              )}
             </div>
             <div className="status-right">
               <span>{saveStatus === 'saving' ? t('saving') : saveStatus === 'saved' ? t('saved') : ''}</span>
