@@ -13,6 +13,7 @@ import { Doc, Folder, DocStatus } from './types';
 import { managerAgent } from './agents/manager';
 import { editorAgent } from './agents/editor';
 import { reviewerAgent } from './agents/reviewer';
+import { researcherAgent } from './agents/researcher';
 import { contextPool } from './agents/context';
 import {
   getAllDocs, getDocsByFolder, getDocsByTag, getDoc, saveDoc, deleteDoc,
@@ -86,6 +87,9 @@ const App: React.FC = () => {
   const [showDiffPanel, setShowDiffPanel] = useState(false);
   const [selectedHistoryEntries, setSelectedHistoryEntries] = useState<string[]>([]);
   const [diffContent, setDiffContent] = useState<{ older: string; newer: string; diffHtml: string; olderTime: number; newerTime: number } | null>(null);
+  const [researchResults, setResearchResults] = useState<{ title: string; url: string; snippet: string }[]>([]);
+  const [showResearchPanel, setShowResearchPanel] = useState(false);
+  const [researchQuery, setResearchQuery] = useState('');
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const historyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -556,6 +560,20 @@ const App: React.FC = () => {
     setShowReviewPanel(true);
   };
 
+  const handleResearch = async () => {
+    if (!researchQuery.trim() || !editor) return;
+    setShowResearchPanel(true);
+    const results = await researcherAgent.search(researchQuery);
+    setResearchResults(results);
+  };
+
+  const handleInsertResearch = (result: { title: string; url: string; snippet: string }) => {
+    if (!editor) return;
+    const citation = `[${result.title}](${result.url})`;
+    editor.chain().focus().insertContent(citation).run();
+    setShowResearchPanel(false);
+  };
+
   const handleAddComment = () => {
     if (!newComment.trim()) return;
     const comment = {
@@ -803,6 +821,7 @@ const App: React.FC = () => {
                 <ToolbarButton onClick={handleAIPolish} title={t('aiPolish')}>📝{t('polish')}</ToolbarButton>
                 <ToolbarButton onClick={handleAIReview} title={t('aiReview')}>🔍{t('review')}</ToolbarButton>
                 <ToolbarButton onClick={() => setShowCommentPanel(true)} title={t('comments')}>💬{t('commentCount', { count: comments.length })}</ToolbarButton>
+                <ToolbarButton onClick={() => { setShowResearchPanel(true); setResearchQuery(''); }} title={t('research')}>🔎{t('search')}</ToolbarButton>
               </div>
             </div>
           )}
@@ -1037,6 +1056,48 @@ const App: React.FC = () => {
             </div>
             <div className="modal-actions">
               <button className="btn" onClick={() => setShowCommentPanel(false)} type="button">{t('close')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Research Panel */}
+      {showResearchPanel && (
+        <div className="modal-overlay" onClick={() => setShowResearchPanel(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 550, maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+            <div className="modal-title">{t('research')}</div>
+            <div style={{ padding: '12px 0', borderBottom: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  className="modal-input"
+                  value={researchQuery}
+                  onChange={e => setResearchQuery(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleResearch(); }}
+                  placeholder={t('researchPlaceholder') || '搜索关键词...'}
+                />
+                <button className="btn btn-primary" onClick={handleResearch} type="button">{t('search')}</button>
+              </div>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 0' }}>
+              {researchResults.length === 0 ? (
+                <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: 20 }}>
+                  {researchQuery ? (t('noResearchResults') || '暂无搜索结果') : (t('enterResearchQuery') || '输入关键词搜索网络内容')}
+                </div>
+              ) : (
+                researchResults.map((result, i) => (
+                  <div key={i} style={{ borderBottom: '1px solid var(--border-color)', padding: '10px 0' }}>
+                    <div style={{ fontWeight: 'bold', fontSize: 14, marginBottom: 4 }}>{result.title}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>{result.snippet}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <a href={result.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: 'var(--link-color)' }}>{result.url}</a>
+                      <button className="btn btn-sm" onClick={() => handleInsertResearch(result)} type="button">📥 {t('insert') || '插入'}</button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="modal-actions">
+              <button className="btn" onClick={() => setShowResearchPanel(false)} type="button">{t('close')}</button>
             </div>
           </div>
         </div>
