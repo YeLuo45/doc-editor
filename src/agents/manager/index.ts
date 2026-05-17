@@ -14,8 +14,9 @@ import { researcherAgent } from '../researcher';
 const STATE_TRANSITIONS: Record<DocStatus, Record<string, DocStatus>> = {
   [DocStatus.DRAFT]: { submit: DocStatus.IN_REVIEW },
   [DocStatus.IN_REVIEW]: { 
-    approve: DocStatus.REVISED, 
-    reject: DocStatus.REJECTED 
+    approve: DocStatus.APPROVED,  // Direct approve (skip revision cycle)
+    reject: DocStatus.REJECTED,
+    revise: DocStatus.REVISED,
   },
   [DocStatus.REVISED]: { 
     confirm: DocStatus.APPROVED, 
