@@ -8,6 +8,8 @@ interface ContextPoolItem {
   expiresAt: number;
 }
 
+const STORAGE_KEY = 'doc-editor-agent-contexts';
+
 export class ContextPool {
   private pool: Map<string, ContextPoolItem>;
   private defaultTTL: number; // milliseconds
@@ -16,6 +18,7 @@ export class ContextPool {
     // 30 minutes default TTL
     this.pool = new Map();
     this.defaultTTL = defaultTTL;
+    this.load(); // Load persisted contexts on initialization
   }
 
   createContext(
@@ -36,7 +39,7 @@ export class ContextPool {
       lastAccessed: Date.now(),
       expiresAt: Date.now() + this.defaultTTL,
     });
-
+    this.save(); // Persist after mutation
     return context;
   }
 
@@ -63,6 +66,7 @@ export class ContextPool {
 
     item.context = { ...item.context, ...updates };
     item.lastAccessed = Date.now();
+    this.save(); // Persist after mutation
     return true;
   }
 
@@ -72,6 +76,7 @@ export class ContextPool {
 
     item.context.messages.push(message);
     item.lastAccessed = Date.now();
+    this.save(); // Persist after mutation
     return true;
   }
 
@@ -113,6 +118,48 @@ export class ContextPool {
   getAllContexts(): AgentContext[] {
     this.cleanup();
     return Array.from(this.pool.values()).map((item) => item.context);
+  }
+
+  // Persist contexts to localStorage
+  private save(): void {
+    try {
+      const data = Array.from(this.pool.entries()).map(([id, item]) => ({
+        id,
+        context: item.context,
+        lastAccessed: item.lastAccessed,
+        expiresAt: item.expiresAt,
+      }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch (e) {
+      console.warn('[ContextPool] Failed to save contexts:', e);
+    }
+  }
+
+  // Load contexts from localStorage
+  private load(): void {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+
+      const data = JSON.parse(raw) as Array<{
+        id: string;
+        context: AgentContext;
+        lastAccessed: number;
+        expiresAt: number;
+      }>;
+
+      for (const item of data) {
+        // Skip expired contexts
+        if (Date.now() > item.expiresAt) continue;
+        this.pool.set(item.id, {
+          context: item.context,
+          lastAccessed: item.lastAccessed,
+          expiresAt: item.expiresAt,
+        });
+      }
+    } catch (e) {
+      console.warn('[ContextPool] Failed to load contexts:', e);
+    }
   }
 }
 
