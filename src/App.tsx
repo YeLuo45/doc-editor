@@ -19,7 +19,7 @@ import {
   getHistory, addHistory, clearOldHistory,
   getAllFolders, saveFolder, deleteFolder, moveDocToFolder, getAllTags,
 } from './db';
-import { downloadFile, exportToMarkdown, exportToPDF, formatDate, countWords } from './utils';
+import { downloadFile, exportToMarkdown, exportToPDF, exportToJSON, exportToLaTeX, exportToDOCX, formatDate, countWords } from './utils';
 
 const lowlight = createLowlight(common);
 
@@ -458,14 +458,28 @@ const App: React.FC = () => {
     }
   };
 
-  const handleExport = async (type: 'md' | 'html' | 'pdf') => {
+  const handleExport = async (type: 'md' | 'html' | 'pdf' | 'json' | 'latex' | 'docx') => {
     if (!editor) return;
     setShowExportMenu(false);
-    if (type === 'md') downloadFile(exportToMarkdown(editor), 'document.md', 'text/markdown');
+    const title = activeDoc?.title || t('untitled');
+    if (type === 'md') downloadFile(exportToMarkdown(editor), `${title}.md`, 'text/markdown');
     else if (type === 'html') {
-      const html = `<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n<meta charset="UTF-8">\n<title>${activeDoc?.title || t('untitled')}</title>\n<style>body{font-family:system-ui;max-width:800px;margin:40px auto;padding:0 20px;line-height:1.8}</style>\n</head>\n<body>${editor.getHTML()}</body>\n</html>`;
-      downloadFile(html, 'document.html', 'text/html');
+      const html = `<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n<meta charset="UTF-8">\n<title>${title}</title>\n<style>body{font-family:system-ui;max-width:800px;margin:40px auto;padding:0 20px;line-height:1.8}</style>\n</head>\n<body>${editor.getHTML()}</body>\n</html>`;
+      downloadFile(html, `${title}.html`, 'text/html');
     } else if (type === 'pdf') await exportToPDF(editor);
+    else if (type === 'json') downloadFile(exportToJSON(editor, title), `${title}.json`, 'application/json');
+    else if (type === 'latex') downloadFile(exportToLaTeX(editor), `${title}.tex`, 'application/x-latex');
+    else if (type === 'docx') {
+      const blob = exportToDOCX(editor, title);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${title}.doc`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
   };
 
   // ---- Workflow actions (Manager Agent integration) ----
@@ -631,6 +645,9 @@ const App: React.FC = () => {
                 <button className="dropdown-item" onClick={() => handleExport('md')} type="button">{t('exportMarkdown')}</button>
                 <button className="dropdown-item" onClick={() => handleExport('html')} type="button">{t('exportHTML')}</button>
                 <button className="dropdown-item" onClick={() => handleExport('pdf')} type="button">{t('exportPDF')}</button>
+                <button className="dropdown-item" onClick={() => handleExport('json')} type="button">{t('exportJSON')}</button>
+                <button className="dropdown-item" onClick={() => handleExport('latex')} type="button">{t('exportLaTeX')}</button>
+                <button className="dropdown-item" onClick={() => handleExport('docx')} type="button">{t('exportDOCX')}</button>
               </div>
             )}
           </div>
