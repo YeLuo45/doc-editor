@@ -232,6 +232,8 @@ const App: React.FC = () => {
   const [showResearchPanel, setShowResearchPanel] = useState(false);
   const [researchQuery, setResearchQuery] = useState('');
   const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [collaborators, setCollaborators] = useState<{ id: string; name: string; color: string; activeAt: number }[]>([]);
+  const [showCollaboratorsPanel, setShowCollaboratorsPanel] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const historyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -976,6 +978,7 @@ const App: React.FC = () => {
                 <ToolbarButton onClick={handleAIReview} title={t('aiReview')}>🔍{t('review')}</ToolbarButton>
                 <ToolbarButton onClick={() => setShowCommentPanel(true)} title={t('comments')}>💬{t('commentCount', { count: comments.length })}</ToolbarButton>
                 <ToolbarButton onClick={() => { setShowResearchPanel(true); setResearchQuery(''); }} title={t('research')}>🔎{t('search')}</ToolbarButton>
+                <ToolbarButton onClick={() => setShowCollaboratorsPanel(true)} title={t('collaborators')}>👥{collaborators.length > 0 ? collaborators.length : ''}</ToolbarButton>
               </div>
             </div>
           )}
@@ -1303,6 +1306,47 @@ const App: React.FC = () => {
             </div>
             <div className="modal-actions">
               <button className="btn" onClick={() => setShowTemplateModal(false)} type="button">{t('cancel')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Collaborators Panel */}
+      {showCollaboratorsPanel && (
+        <div className="modal-overlay" onClick={() => setShowCollaboratorsPanel(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+            <div className="modal-title">{t('collaborators')}</div>
+            <div style={{ padding: '12px 0' }}>
+              {collaborators.length === 0 ? (
+                <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: 20 }}>
+                  {t('noCollaborators') || '暂无协作者'}
+                </div>
+              ) : (
+                collaborators.map(c => (
+                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: '1px solid var(--border-color)' }}>
+                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: c.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 'bold', fontSize: 16 }}>
+                      {c.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 'bold' }}>{c.name}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                        {c.activeAt > Date.now() - 60000 ? t('activeNow') || '在线' : t('lastSeen') + ' ' + formatDate(c.activeAt)}
+                      </div>
+                    </div>
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: c.activeAt > Date.now() - 60000 ? '#4caf50' : '#9e9e9e' }} />
+                  </div>
+                ))
+              )}
+              <div style={{ marginTop: 16 }}>
+                <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => {
+                  // Simulate adding a collaborator
+                  const newCollab = { id: Date.now().toString(), name: 'Guest ' + Math.floor(Math.random() * 100), color: ['#f44336', '#2196f3', '#4caf50', '#ff9800', '#9c27b0'][Math.floor(Math.random() * 5)], activeAt: Date.now() };
+                  setCollaborators(prev => [...prev, newCollab]);
+                }} type="button">{t('inviteCollaborator')}</button>
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button className="btn" onClick={() => setShowCollaboratorsPanel(false)} type="button">{t('close')}</button>
             </div>
           </div>
         </div>
