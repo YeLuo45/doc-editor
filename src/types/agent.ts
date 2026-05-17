@@ -37,6 +37,9 @@ export interface AgentMessage {
   conversationId?: string;
   parentId?: string;
   retryCount?: number;
+  // Chat-style fields for context messages
+  role?: 'user' | 'assistant' | 'system';
+  content?: string;
 }
 
 export interface AgentContext {
