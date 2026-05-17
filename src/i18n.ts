@@ -85,6 +85,13 @@ const resources = {
       noComments: '暂无评论',
       addCommentPlaceholder: '添加评论...',
       anonymous: '访客',
+      versionDiff: '版本对比',
+      older: '旧版本',
+      newer: '新版本',
+      added: '新增',
+      removed: '删除',
+      changed: '修改',
+      compare: '对比',
     },
   },
 };

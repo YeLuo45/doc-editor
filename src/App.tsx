@@ -83,6 +83,9 @@ const App: React.FC = () => {
   const [comments, setComments] = useState<{ id: string; author: string; content: string; timestamp: number; selectedText?: string }[]>([]);
   const [showCommentPanel, setShowCommentPanel] = useState(false);
   const [newComment, setNewComment] = useState('');
+  const [showDiffPanel, setShowDiffPanel] = useState(false);
+  const [selectedHistoryEntries, setSelectedHistoryEntries] = useState<string[]>([]);
+  const [diffContent, setDiffContent] = useState<{ older: string; newer: string; diffHtml: string; olderTime: number; newerTime: number } | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const historyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -264,6 +267,56 @@ const App: React.FC = () => {
       editor.commands.setContent(entry.content);
       setShowHistory(false);
     }
+  };
+
+  const handleCompareVersions = async () => {
+    if (!activeDocId || selectedHistoryEntries.length !== 2) return;
+    const entries = await getHistory(activeDocId);
+    const v1 = entries.find(e => e.id === selectedHistoryEntries[0]);
+    const v2 = entries.find(e => e.id === selectedHistoryEntries[1]);
+    if (v1 && v2) {
+      const older = v1.timestamp < v2.timestamp ? v1 : v2;
+      const newer = v1.timestamp < v2.timestamp ? v2 : v1;
+      const diffHtml = generateDiff(older.content, newer.content);
+      setShowDiffPanel(true);
+      setDiffContent({ older: older.content, newer: newer.content, diffHtml, olderTime: older.timestamp, newerTime: newer.timestamp });
+    }
+  };
+
+  const generateDiff = (oldHtml: string, newHtml: string): string => {
+    const stripHtml = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    const oldText = stripHtml(oldHtml);
+    const newText = stripHtml(newHtml);
+    const oldWords = oldText.split(' ');
+    const newWords = newText.split(' ');
+    let html = '<div style="font-family: monospace; font-size: 13px; line-height: 1.6;">';
+    let i = 0, j = 0;
+    while (i < oldWords.length || j < newWords.length) {
+      if (i >= oldWords.length) {
+        html += `<span style="background: #d4edda; color: #155724;">${newWords.slice(j).join(' ')}</span>`;
+        break;
+      }
+      if (j >= newWords.length) {
+        html += `<span style="background: #f8d7da; color: #721c24;">${oldWords.slice(i).join(' ')}</span>`;
+        break;
+      }
+      if (oldWords[i] === newWords[j]) {
+        html += oldWords[i] + ' ';
+        i++; j++;
+      } else {
+        const lookaheadOld = oldWords.slice(i, i + 3).join(' ');
+        const lookaheadNew = newWords.slice(j, j + 3).join(' ');
+        if (lookaheadOld === lookaheadNew) {
+          html += `<span style="background: #fff3cd; color: #856404;">${oldWords[i]} → ${newWords[j]}</span> `;
+          i++; j++;
+        } else {
+          html += `<span style="background: #f8d7da; color: #721c24;">${oldWords[i]} </span>`;
+          i++;
+        }
+      }
+    }
+    html += '</div>';
+    return html;
   };
 
   // ---- Doc operations ----
@@ -809,13 +862,31 @@ const App: React.FC = () => {
               {history.length === 0 && <div className="empty-state">{t('noHistory')}</div>}
               {history.map(entry => (
                 <div key={entry.id} className="history-item">
-                  <div className="history-item-time">{formatDate(entry.timestamp)}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedHistoryEntries.includes(entry.id)}
+                      onChange={e => {
+                        if (e.target.checked) {
+                          setSelectedHistoryEntries([...selectedHistoryEntries, entry.id]);
+                        } else {
+                          setSelectedHistoryEntries(selectedHistoryEntries.filter(id => id !== entry.id));
+                        }
+                      }}
+                    />
+                    <div className="history-item-time">{formatDate(entry.timestamp)}</div>
+                  </div>
                   <div className="history-item-actions">
                     <button className="btn btn-sm" onClick={() => restoreHistory(entry.id)} type="button">{t('restore')}</button>
                   </div>
                 </div>
               ))}
             </div>
+            {selectedHistoryEntries.length === 2 && (
+              <div style={{ padding: '8px 12px', borderTop: '1px solid var(--border-color)' }}>
+                <button className="btn btn-sm btn-primary" onClick={handleCompareVersions} type="button">{t('compare')}</button>
+              </div>
+            )}
           </aside>
         )}
       </div>
@@ -949,6 +1020,30 @@ const App: React.FC = () => {
             </div>
             <div className="modal-actions">
               <button className="btn" onClick={() => setShowCommentPanel(false)} type="button">{t('close')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Diff Panel */}
+      {showDiffPanel && diffContent && (
+        <div className="modal-overlay" onClick={() => setShowDiffPanel(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 700, maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+            <div className="modal-title">{t('versionDiff')}</div>
+            <div style={{ padding: '8px 0', display: 'flex', gap: 16, fontSize: 12, color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>
+              <span>🕐 {t('older')}: {formatDate(diffContent.olderTime)}</span>
+              <span>🕐 {t('newer')}: {formatDate(diffContent.newerTime)}</span>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 0' }}>
+              <div dangerouslySetInnerHTML={{ __html: diffContent.diffHtml }} />
+            </div>
+            <div style={{ padding: '8px 0', display: 'flex', gap: 8, fontSize: 11, color: 'var(--text-secondary)', borderTop: '1px solid var(--border-color)' }}>
+              <span style={{ background: '#d4edda', padding: '2px 4px' }}>{t('added')}</span>
+              <span style={{ background: '#f8d7da', padding: '2px 4px' }}>{t('removed')}</span>
+              <span style={{ background: '#fff3cd', padding: '2px 4px' }}>{t('changed')}</span>
+            </div>
+            <div className="modal-actions">
+              <button className="btn" onClick={() => setShowDiffPanel(false)} type="button">{t('close')}</button>
             </div>
           </div>
         </div>
