@@ -12,6 +12,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Doc, Folder, DocStatus } from './types';
 import { managerAgent } from './agents/manager';
 import { editorAgent } from './agents/editor';
+import { reviewerAgent } from './agents/reviewer';
 import { contextPool } from './agents/context';
 import {
   getAllDocs, getDocsByFolder, getDocsByTag, getDoc, saveDoc, deleteDoc,
@@ -77,6 +78,8 @@ const App: React.FC = () => {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [docStatus, setDocStatus] = useState<DocStatus>(DocStatus.DRAFT);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [reviewResult, setReviewResult] = useState<{ score: number; issues: string[]; suggestions: string[] } | null>(null);
+  const [showReviewPanel, setShowReviewPanel] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const historyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -474,6 +477,15 @@ const App: React.FC = () => {
     }
   };
 
+  // ReviewerAgent: AI review with score and suggestions
+  const handleAIReview = async () => {
+    if (!activeDocId || !editor) return;
+    const content = editor.getHTML();
+    const result = await reviewerAgent.runAutomatedReview(content);
+    setReviewResult(result);
+    setShowReviewPanel(true);
+  };
+
   const addLink = () => {
     const url = window.prompt('URL:');
     if (url) editor?.chain().focus().setLink({ href: url }).run();
@@ -700,6 +712,7 @@ const App: React.FC = () => {
               <div className="toolbar-group">
                 <ToolbarButton onClick={handleAIAutoFormat} title={t('autoFormat')}>✨{t('format')}</ToolbarButton>
                 <ToolbarButton onClick={handleAIPolish} title={t('aiPolish')}>📝{t('polish')}</ToolbarButton>
+                <ToolbarButton onClick={handleAIReview} title={t('aiReview')}>🔍{t('review')}</ToolbarButton>
               </div>
             </div>
           )}
@@ -841,6 +854,45 @@ const App: React.FC = () => {
       )}
 
       {showExportMenu && <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setShowExportMenu(false)} />}
+
+      {/* Review Panel */}
+      {showReviewPanel && reviewResult && (
+        <div className="modal-overlay" onClick={() => setShowReviewPanel(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+            <div className="modal-title">{t('reviewResult')}</div>
+            <div style={{ padding: '12px 0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                <span style={{ fontSize: 32 }}>{reviewResult.score >= 0.8 ? '✅' : reviewResult.score >= 0.6 ? '⚠️' : '❌'}</span>
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 'bold' }}>{t('score')}: {Math.round(reviewResult.score * 100)}%</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                    {reviewResult.score >= 0.8 ? t('reviewGreat') : reviewResult.score >= 0.6 ? t('reviewGood') : t('reviewNeedsWork')}
+                  </div>
+                </div>
+              </div>
+              {reviewResult.issues.length > 0 && (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontWeight: 'bold', marginBottom: 6 }}>{t('issues')}:</div>
+                  {reviewResult.issues.map((issue, i) => (
+                    <div key={i} style={{ fontSize: 13, color: 'var(--text-secondary)', marginLeft: 12 }}>• {issue}</div>
+                  ))}
+                </div>
+              )}
+              {reviewResult.suggestions.length > 0 && (
+                <div>
+                  <div style={{ fontWeight: 'bold', marginBottom: 6 }}>{t('suggestions')}:</div>
+                  {reviewResult.suggestions.map((s, i) => (
+                    <div key={i} style={{ fontSize: 13, color: 'var(--text-secondary)', marginLeft: 12 }}>💡 {s}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="modal-actions">
+              <button className="btn" onClick={() => setShowReviewPanel(false)} type="button">{t('close')}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
