@@ -80,6 +80,9 @@ const App: React.FC = () => {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [reviewResult, setReviewResult] = useState<{ score: number; issues: string[]; suggestions: string[] } | null>(null);
   const [showReviewPanel, setShowReviewPanel] = useState(false);
+  const [comments, setComments] = useState<{ id: string; author: string; content: string; timestamp: number; selectedText?: string }[]>([]);
+  const [showCommentPanel, setShowCommentPanel] = useState(false);
+  const [newComment, setNewComment] = useState('');
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const historyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -486,6 +489,22 @@ const App: React.FC = () => {
     setShowReviewPanel(true);
   };
 
+  const handleAddComment = () => {
+    if (!newComment.trim()) return;
+    const comment = {
+      id: Date.now().toString(),
+      author: t('anonymous') || 'Anonymous',
+      content: newComment,
+      timestamp: Date.now(),
+    };
+    setComments([...comments, comment]);
+    setNewComment('');
+  };
+
+  const handleDeleteComment = (id: string) => {
+    setComments(comments.filter(c => c.id !== id));
+  };
+
   const addLink = () => {
     const url = window.prompt('URL:');
     if (url) editor?.chain().focus().setLink({ href: url }).run();
@@ -713,6 +732,7 @@ const App: React.FC = () => {
                 <ToolbarButton onClick={handleAIAutoFormat} title={t('autoFormat')}>✨{t('format')}</ToolbarButton>
                 <ToolbarButton onClick={handleAIPolish} title={t('aiPolish')}>📝{t('polish')}</ToolbarButton>
                 <ToolbarButton onClick={handleAIReview} title={t('aiReview')}>🔍{t('review')}</ToolbarButton>
+                <ToolbarButton onClick={() => setShowCommentPanel(true)} title={t('comments')}>💬{t('commentCount', { count: comments.length })}</ToolbarButton>
               </div>
             </div>
           )}
@@ -889,6 +909,46 @@ const App: React.FC = () => {
             </div>
             <div className="modal-actions">
               <button className="btn" onClick={() => setShowReviewPanel(false)} type="button">{t('close')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Comment Panel */}
+      {showCommentPanel && (
+        <div className="modal-overlay" onClick={() => setShowCommentPanel(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 450, maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+            <div className="modal-title">{t('comments')}</div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 0' }}>
+              {comments.length === 0 ? (
+                <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: 20 }}>{t('noComments')}</div>
+              ) : (
+                comments.map(comment => (
+                  <div key={comment.id} style={{ borderBottom: '1px solid var(--border-color)', padding: '8px 0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <span style={{ fontWeight: 'bold', fontSize: 13 }}>{comment.author}</span>
+                      <button className="btn btn-sm" onClick={() => handleDeleteComment(comment.id)} type="button" style={{ padding: '2px 6px' }}>🗑️</button>
+                    </div>
+                    <div style={{ fontSize: 13 }}>{comment.content}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>{formatDate(comment.timestamp)}</div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div style={{ padding: '12px 0', borderTop: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  className="modal-input"
+                  value={newComment}
+                  onChange={e => setNewComment(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleAddComment(); }}
+                  placeholder={t('addCommentPlaceholder')}
+                />
+                <button className="btn btn-primary" onClick={handleAddComment} type="button">{t('add')}</button>
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button className="btn" onClick={() => setShowCommentPanel(false)} type="button">{t('close')}</button>
             </div>
           </div>
         </div>

@@ -80,6 +80,11 @@ const resources = {
       reviewNeedsWork: '文章需要较大改进',
       issues: '问题',
       suggestions: '建议',
+      comments: '评论',
+      commentCount: '{{count}}条评论',
+      noComments: '暂无评论',
+      addCommentPlaceholder: '添加评论...',
+      anonymous: '访客',
     },
   },
 };
