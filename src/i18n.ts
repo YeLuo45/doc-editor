@@ -66,6 +66,11 @@ const resources = {
       approve: '批准',
       reject: '拒绝',
       publish: '发布',
+      autoFormat: 'AI自动格式化',
+      format: '格式化',
+      aiPolish: 'AI润色',
+      polish: '润色',
+      polishInstruction: '请优化这篇文章，使其更加通顺、清晰、专业',
     },
   },
 };

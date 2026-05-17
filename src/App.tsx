@@ -11,6 +11,7 @@ import { common, createLowlight } from 'lowlight';
 import { v4 as uuidv4 } from 'uuid';
 import { Doc, Folder, DocStatus } from './types';
 import { managerAgent } from './agents/manager';
+import { editorAgent } from './agents/editor';
 import { contextPool } from './agents/context';
 import {
   getAllDocs, getDocsByFolder, getDocsByTag, getDoc, saveDoc, deleteDoc,
@@ -445,6 +446,34 @@ const App: React.FC = () => {
     }
   };
 
+  // EditorAgent: AI auto-format
+  const handleAIAutoFormat = async () => {
+    if (!activeDocId || !editor) return;
+    const content = editor.getHTML();
+    const result = await editorAgent.formatDocument(activeDocId, content);
+    if (result) {
+      editor.commands.setContent(result);
+    }
+  };
+
+  // EditorAgent: AI polish with instruction
+  const handleAIPolish = async () => {
+    if (!activeDocId || !editor) return;
+    const content = editor.getHTML();
+    const instruction = t('polishInstruction') || 'Please polish and improve this text';
+    const result = await editorAgent.requestEdit(activeDocId, content, instruction, conversationId || undefined);
+    if (result.success) {
+      // Reload content from context pool after edit
+      const ctx = contextPool.getContext(activeDocId);
+      if (ctx?.messages.length) {
+        const lastMsg = ctx.messages[ctx.messages.length - 1];
+        if (lastMsg.role === 'assistant' && typeof lastMsg.content === 'string') {
+          editor.commands.setContent(lastMsg.content);
+        }
+      }
+    }
+  };
+
   const addLink = () => {
     const url = window.prompt('URL:');
     if (url) editor?.chain().focus().setLink({ href: url }).run();
@@ -667,6 +696,10 @@ const App: React.FC = () => {
               <div className="toolbar-group">
                 <ToolbarButton onClick={() => editor.chain().focus().undo().run()} title={t('undo')}>↩</ToolbarButton>
                 <ToolbarButton onClick={() => editor.chain().focus().redo().run()} title={t('redo')}>↪</ToolbarButton>
+              </div>
+              <div className="toolbar-group">
+                <ToolbarButton onClick={handleAIAutoFormat} title={t('autoFormat')}>✨{t('format')}</ToolbarButton>
+                <ToolbarButton onClick={handleAIPolish} title={t('aiPolish')}>📝{t('polish')}</ToolbarButton>
               </div>
             </div>
           )}
