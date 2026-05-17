@@ -26,6 +26,147 @@ const lowlight = createLowlight(common);
 
 type SidebarTab = 'docs' | 'folders' | 'tags';
 
+// ---- Document templates ----
+interface DocTemplate {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  content: string;
+}
+
+const TEMPLATES: DocTemplate[] = [
+  {
+    id: 'blank',
+    name: 'blank',
+    icon: '📄',
+    description: '从空白文档开始',
+    content: '',
+  },
+  {
+    id: 'meeting-notes',
+    name: 'meetingNotes',
+    icon: '📝',
+    description: '会议记录模板',
+    content: `<h1>会议记录</h1>
+<h2>会议信息</h2>
+<p><strong>日期：</strong></p>
+<p><strong>参会人员：</strong></p>
+<p><strong>会议主题：</strong></p>
+<hr>
+<h2>议程</h2>
+<ol>
+<li></li>
+</ol>
+<hr>
+<h2>讨论内容</h2>
+<p></p>
+<hr>
+<h2>决议</h2>
+<ul>
+<li></li>
+</ul>
+<hr>
+<h2>下一步行动</h2>
+<ul>
+<li></li>
+</ul>`,
+  },
+  {
+    id: 'project-proposal',
+    name: 'projectProposal',
+    icon: '💼',
+    description: '项目提案模板',
+    content: `<h1>项目提案</h1>
+<h2>项目概述</h2>
+<p></p>
+<h2>背景与目标</h2>
+<p></p>
+<h2>项目范围</h2>
+<ul>
+<li></li>
+</ul>
+<h2>时间计划</h2>
+<table>
+<tr><th>阶段</th><th>时间</th><th>交付物</th></tr>
+<tr><td></td><td></td><td></td></tr>
+</table>
+<h2>资源需求</h2>
+<p></p>
+<h2>风险评估</h2>
+<ul>
+<li></li>
+</ul>
+<h2>预算估算</h2>
+<p></p>`,
+  },
+  {
+    id: 'weekly-report',
+    name: 'weeklyReport',
+    icon: '📊',
+    description: '周报模板',
+    content: `<h1>周报</h1>
+<h2>本周工作总结</h2>
+<ul>
+<li></li>
+</ul>
+<h2>下周工作计划</h2>
+<ul>
+<li></li>
+</ul>
+<h2>遇到的问题</h2>
+<p></p>
+<h2>所需支持</h2>
+<p></p>`,
+  },
+  {
+    id: 'brainstorm',
+    name: 'brainstorm',
+    icon: '💡',
+    description: '头脑风暴模板',
+    content: `<h1>头脑风暴</h1>
+<h2>主题</h2>
+<p></p>
+<hr>
+<h2>想法收集</h2>
+<h3>方案 A</h3>
+<p></p>
+<h3>方案 B</h3>
+<p></p>
+<h3>方案 C</h3>
+<p></p>
+<hr>
+<h2>可行性分析</h2>
+<p></p>
+<hr>
+<h2>最终方案</h2>
+<p></p>`,
+  },
+  {
+    id: 'study-notes',
+    name: 'studyNotes',
+    icon: '📚',
+    description: '学习笔记模板',
+    content: `<h1>学习笔记</h1>
+<h2>主题</h2>
+<p></p>
+<h2>关键概念</h2>
+<p></p>
+<h2>核心知识点</h2>
+<ol>
+<li></li>
+</ol>
+<h2>实践应用</h2>
+<p></p>
+<h2>疑问与思考</h2>
+<p></p>
+<h2>参考资料</h2>
+<ul>
+<li></li>
+</ul>`,
+  },
+];
+
 // ---- Small components ----
 
 const ToolbarButton: React.FC<{
@@ -90,6 +231,7 @@ const App: React.FC = () => {
   const [researchResults, setResearchResults] = useState<{ title: string; url: string; snippet: string }[]>([]);
   const [showResearchPanel, setShowResearchPanel] = useState(false);
   const [researchQuery, setResearchQuery] = useState('');
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const historyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -324,15 +466,27 @@ const App: React.FC = () => {
   };
 
   // ---- Doc operations ----
-  const createNewDoc = async () => {
+  const createNewDoc = async (templateId?: string) => {
+    let content = '';
+    let title = t('untitled');
+    if (templateId && templateId !== 'blank') {
+      const tmpl = TEMPLATES.find(t => t.id === templateId);
+      if (tmpl) {
+        content = tmpl.content;
+        title = t(tmpl.name) || tmpl.name;
+      }
+    }
     const doc: Doc = {
-      id: uuidv4(), title: t('untitled'), content: '',
+      id: uuidv4(), title, content,
       folderId: sidebarTab === 'folders' ? (activeFolderId === undefined ? null : activeFolderId) : null,
       tags: [], createdAt: Date.now(), updatedAt: Date.now(),
     };
     await saveDoc(doc);
     await loadAll();
     selectDoc(doc.id);
+    if (content && editor) {
+      editor.commands.setContent(content);
+    }
   };
 
   const handleDeleteDoc = async (doc: Doc) => {
@@ -655,7 +809,7 @@ const App: React.FC = () => {
           )}
         </div>
         <div className="header-actions">
-          <button className="btn btn-primary" onClick={createNewDoc} type="button">+ {t('newDoc')}</button>
+          <button className="btn btn-primary" onClick={() => setShowTemplateModal(true)} type="button">+ {t('newDoc')}</button>
           <div className="dropdown">
             <button className="btn" onClick={() => setShowExportMenu(!showExportMenu)} type="button">{t('export')}</button>
             {showExportMenu && (
@@ -1122,6 +1276,33 @@ const App: React.FC = () => {
             </div>
             <div className="modal-actions">
               <button className="btn" onClick={() => setShowDiffPanel(false)} type="button">{t('close')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Template Selection Modal */}
+      {showTemplateModal && (
+        <div className="modal-overlay" onClick={() => setShowTemplateModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+            <div className="modal-title">{t('selectTemplate')}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, padding: '12px 0' }}>
+              {TEMPLATES.map(tmpl => (
+                <button
+                  key={tmpl.id}
+                  className="btn"
+                  onClick={() => { createNewDoc(tmpl.id); setShowTemplateModal(false); }}
+                  type="button"
+                  style={{ padding: 16, textAlign: 'left', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}
+                >
+                  <span style={{ fontSize: 24 }}>{tmpl.icon}</span>
+                  <span style={{ fontWeight: 'bold', fontSize: 14 }}>{t(tmpl.name)}</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{t(tmpl.descriptionKey || tmpl.description)}</span>
+                </button>
+              ))}
+            </div>
+            <div className="modal-actions">
+              <button className="btn" onClick={() => setShowTemplateModal(false)} type="button">{t('cancel')}</button>
             </div>
           </div>
         </div>
