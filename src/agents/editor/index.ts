@@ -4,6 +4,8 @@ import { AgentLoop } from '../agentLoop';
 import { AgentType, AgentMessage, MessageType } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { messageBus } from '../messageBus';
+import { toolRegistry } from '../tools/registry';
+import { providerFactory } from '../../providers/factory';
 
 export class EditorAgent {
   private loop: AgentLoop;
@@ -56,15 +58,34 @@ export class EditorAgent {
     return { success: true, message: 'Edit request submitted' };
   }
 
-  // Format document
+  // Format document using tool
   async formatDocument(docId: string, content: string): Promise<string> {
-    const { toolRegistry } = await import('../../tools/registry');
-    const result = await toolRegistry.execute('format_doc', { content });
+    const result = await toolRegistry.execute('text_format', { content });
     if (result.success) {
-      // Save formatted content
-      await toolRegistry.execute('write_file', { docId, content: result.output });
+      // Save formatted content via provider if needed
+      await toolRegistry.execute('doc_export', { content: result.output, format: 'html' });
     }
     return result.output || content;
+  }
+
+  // Export document
+  async exportDocument(content: string, format: string): Promise<string> {
+    const result = await toolRegistry.execute('doc_export', { content, format });
+    return result.output || content;
+  }
+
+  // Get available tools for this agent
+  getAvailableTools() {
+    return toolRegistry.getToolsForAgent(AgentType.EDITOR);
+  }
+
+  // Chat with LLM provider
+  async chatWithLLM(messages: { role: string; content: string }[]): Promise<string> {
+    const response = await providerFactory.chat(messages.map(m => ({
+      role: m.role as 'system' | 'user' | 'assistant',
+      content: m.content
+    })));
+    return response.content || response.error || '';
   }
 
   getConversationId(): string {

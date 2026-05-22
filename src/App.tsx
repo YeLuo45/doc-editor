@@ -32,6 +32,7 @@ interface DocTemplate {
   name: string;
   icon: string;
   description: string;
+  descriptionKey?: string;
   content: string;
 }
 

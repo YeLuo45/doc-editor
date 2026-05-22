@@ -4,6 +4,8 @@ import { AgentLoop } from '../agentLoop';
 import { AgentType, AgentMessage, MessageType } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { messageBus } from '../messageBus';
+import { toolRegistry } from '../tools/registry';
+import { providerFactory } from '../../providers/factory';
 
 export interface SearchResult {
   title: string;
@@ -64,25 +66,52 @@ export class ResearcherAgent {
     }];
   }
 
-  // Search the web
+  // Search the web using tool
   async search(query: string): Promise<SearchResult[]> {
-    const { toolRegistry } = await import('../../tools/registry');
     const result = await toolRegistry.execute('web_search', { query });
-    return JSON.parse(result.output || '[]');
+    const data = JSON.parse(result.output || '{"results":[]}');
+    return data.results || [];
   }
 
-  // Fetch a URL
+  // Fetch a URL using tool
   async fetchUrl(url: string): Promise<{ title: string; content: string }> {
-    const { toolRegistry } = await import('../../tools/registry');
     const result = await toolRegistry.execute('web_fetch', { url });
     return JSON.parse(result.output || '{}');
   }
 
-  // Generate citation
-  async citeReference(title: string, author?: string, year?: string, url?: string): Promise<string> {
-    const { toolRegistry } = await import('../../tools/registry');
-    const result = await toolRegistry.execute('cite_reference', { title, author, year, url });
+  // Generate citation using tool
+  async citeReference(
+    title: string,
+    author?: string,
+    year?: string,
+    url?: string
+  ): Promise<string> {
+    const result = await toolRegistry.execute('citation_insert', {
+      citation: { title, author, year, url },
+      format: 'plain',
+    });
     return result.output;
+  }
+
+  // Generate content summary
+  async summarizeContent(content: string): Promise<string> {
+    const result = await toolRegistry.execute('content_summary', { content, format: 'short' });
+    const data = JSON.parse(result.output || '{}');
+    return data.summary || '';
+  }
+
+  // Get available tools for this agent
+  getAvailableTools() {
+    return toolRegistry.getToolsForAgent(AgentType.RESEARCHER);
+  }
+
+  // Chat with LLM provider
+  async chatWithLLM(messages: { role: string; content: string }[]): Promise<string> {
+    const response = await providerFactory.chat(messages.map(m => ({
+      role: m.role as 'system' | 'user' | 'assistant',
+      content: m.content
+    })));
+    return response.content || response.error || '';
   }
 
   getConversationId(): string {

@@ -4,6 +4,8 @@ import { AgentLoop } from '../agentLoop';
 import { AgentType, AgentMessage, MessageType, ReviewResult } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { messageBus } from '../messageBus';
+import { toolRegistry } from '../tools/registry';
+import { providerFactory } from '../../providers/factory';
 
 export class ReviewerAgent {
   private loop: AgentLoop;
@@ -60,32 +62,51 @@ export class ReviewerAgent {
     };
   }
 
-  // Run automated review checks
+  // Run automated review checks using tools
   async runAutomatedReview(content: string): Promise<ReviewResult> {
-    const { toolRegistry } = await import('../../tools/registry');
-
-    const [grammarResult, styleResult, consistencyResult] = await Promise.all([
+    const [grammarResult, styleResult, spellResult] = await Promise.all([
       toolRegistry.execute('grammar_check', { content }),
-      toolRegistry.execute('style_check', { content }),
-      toolRegistry.execute('consistency_check', { content }),
+      toolRegistry.execute('style_suggest', { content }),
+      toolRegistry.execute('spell_check', { content }),
     ]);
 
     const grammarData = JSON.parse(grammarResult.output || '{"score":1,"issues":[]}');
     const styleData = JSON.parse(styleResult.output || '{"score":1,"suggestions":[]}');
-    const consistencyData = JSON.parse(consistencyResult.output || '{"score":1,"issues":[]}');
+    const spellData = JSON.parse(spellResult.output || '{"score":1,"issues":[]}');
 
-    const overallScore = (grammarData.score + styleData.score + consistencyData.score) / 3;
+    const overallScore = (grammarData.score + styleData.score + spellData.score) / 3;
 
     return {
       score: overallScore,
-      issues: [...(grammarData.issues || []), ...(consistencyData.issues || [])],
+      issues: [...(grammarData.issues || []), ...(spellData.issues || [])],
       suggestions: styleData.suggestions || [],
     };
+  }
+
+  // Generate content summary
+  async summarizeContent(content: string): Promise<string> {
+    const result = await toolRegistry.execute('content_summary', { content, format: 'short' });
+    const data = JSON.parse(result.output || '{}');
+    return data.summary || '';
   }
 
   // Check if review passes threshold
   passesReview(reviewResult: ReviewResult, threshold = 0.8): boolean {
     return reviewResult.score >= threshold;
+  }
+
+  // Get available tools for this agent
+  getAvailableTools() {
+    return toolRegistry.getToolsForAgent(AgentType.REVIEWER);
+  }
+
+  // Chat with LLM provider
+  async chatWithLLM(messages: { role: string; content: string }[]): Promise<string> {
+    const response = await providerFactory.chat(messages.map(m => ({
+      role: m.role as 'system' | 'user' | 'assistant',
+      content: m.content
+    })));
+    return response.content || response.error || '';
   }
 
   getConversationId(): string {

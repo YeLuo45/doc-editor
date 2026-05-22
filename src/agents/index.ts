@@ -10,4 +10,5 @@ export { ReviewerAgent, reviewerAgent } from './reviewer';
 export { ResearcherAgent, researcherAgent } from './researcher';
 export { ManagerAgent, managerAgent } from './manager';
 export { AgentRegistry, agentRegistry } from './registry';
-export { ToolRegistry, toolRegistry } from '../tools/registry';
+export { toolRegistry, ToolRegistryImpl } from './tools/registry';
+export type { BaseTool, ToolMetadata } from './tools/registry';

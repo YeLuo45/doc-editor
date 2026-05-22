@@ -1,3 +1,4 @@
-// Tools index - Export all tools
+// Tools index - Re-export from agents/tools for backwards compatibility
 
-export * from './registry';
+export { toolRegistry, ToolRegistryImpl } from '../agents/tools/registry';
+export type { BaseTool, ToolMetadata } from '../agents/tools/registry';
