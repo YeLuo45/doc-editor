@@ -6,6 +6,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { messageBus } from '../messageBus';
 import { toolRegistry } from '../tools/registry';
 import { providerFactory } from '../../providers/factory';
+import { agentStateManager } from '../state/AgentStateManager';
+import { agentEventBus, Events } from '../events/AgentEventBus';
 
 export class ReviewerAgent {
   private loop: AgentLoop;
@@ -26,6 +28,7 @@ export class ReviewerAgent {
   }
 
   async start(conversationId?: string): Promise<string> {
+    agentStateManager.updateState('reviewer', { status: 'working' });
     const convId = conversationId || uuidv4();
     await this.loop.start();
     return convId;
@@ -33,6 +36,7 @@ export class ReviewerAgent {
 
   stop(): void {
     this.loop.stop();
+    agentStateManager.updateState('reviewer', { status: 'idle' });
   }
 
   // Request document review
@@ -41,6 +45,7 @@ export class ReviewerAgent {
     content: string,
     conversationId?: string
   ): Promise<ReviewResult> {
+    agentStateManager.updateState('reviewer', { status: 'working', currentTask: 'request_review' });
     const message: AgentMessage = {
       id: uuidv4(),
       sender: AgentType.MANAGER,
@@ -55,15 +60,22 @@ export class ReviewerAgent {
 
     // In real implementation, would wait for response
     // For now, return a default review result
-    return {
+    const result: ReviewResult = {
       score: 0.9,
       issues: [],
       suggestions: [],
     };
+    
+    // Emit review complete event
+    agentEventBus.emit(Events.REVIEWER_REVIEW_COMPLETE, { docId, result });
+    agentStateManager.updateState('reviewer', { status: 'completed' });
+    
+    return result;
   }
 
   // Run automated review checks using tools
   async runAutomatedReview(content: string): Promise<ReviewResult> {
+    agentStateManager.updateState('reviewer', { status: 'working', currentTask: 'automated_review' });
     const [grammarResult, styleResult, spellResult] = await Promise.all([
       toolRegistry.execute('grammar_check', { content }),
       toolRegistry.execute('style_suggest', { content }),
@@ -76,11 +88,17 @@ export class ReviewerAgent {
 
     const overallScore = (grammarData.score + styleData.score + spellData.score) / 3;
 
-    return {
+    const result: ReviewResult = {
       score: overallScore,
       issues: [...(grammarData.issues || []), ...(spellData.issues || [])],
       suggestions: styleData.suggestions || [],
     };
+    
+    // Emit review complete event
+    agentEventBus.emit(Events.REVIEWER_REVIEW_COMPLETE, { result });
+    agentStateManager.updateState('reviewer', { status: 'completed' });
+    
+    return result;
   }
 
   // Generate content summary

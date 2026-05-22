@@ -6,6 +6,10 @@ import { v4 as uuidv4 } from 'uuid';
 import { messageBus } from '../messageBus';
 import { toolRegistry } from '../tools/registry';
 import { providerFactory } from '../../providers/factory';
+import { agentStateManager } from '../state/AgentStateManager';
+import { agentEventBus, Events } from '../events/AgentEventBus';
+import { SnapshotManager } from '../../context/SnapshotManager';
+import { DocumentContext } from '../../context/DocumentContext';
 
 export class EditorAgent {
   private loop: AgentLoop;
@@ -26,6 +30,7 @@ export class EditorAgent {
   }
 
   async start(conversationId?: string): Promise<string> {
+    agentStateManager.updateState('editor', { status: 'working' });
     const convId = conversationId || uuidv4();
     await this.loop.start();
     return convId;
@@ -33,6 +38,7 @@ export class EditorAgent {
 
   stop(): void {
     this.loop.stop();
+    agentStateManager.updateState('editor', { status: 'idle' });
   }
 
   // Request document edit
@@ -42,6 +48,7 @@ export class EditorAgent {
     instruction: string,
     conversationId?: string
   ): Promise<any> {
+    agentStateManager.updateState('editor', { status: 'working', currentTask: 'request_edit' });
     const message: AgentMessage = {
       id: uuidv4(),
       sender: AgentType.MANAGER,
@@ -55,16 +62,21 @@ export class EditorAgent {
     await messageBus.publish(message);
 
     // Wait for response (simplified - in real implementation would use callback)
+    agentStateManager.updateState('editor', { status: 'waiting_feedback' });
     return { success: true, message: 'Edit request submitted' };
   }
 
   // Format document using tool
   async formatDocument(docId: string, content: string): Promise<string> {
+    agentStateManager.updateState('editor', { status: 'working', currentTask: 'format_document' });
     const result = await toolRegistry.execute('text_format', { content });
     if (result.success) {
       // Save formatted content via provider if needed
       await toolRegistry.execute('doc_export', { content: result.output, format: 'html' });
     }
+    // Emit document saved event
+    agentEventBus.emit(Events.EDITOR_DOCUMENT_SAVED, { docId, content: result.output || content });
+    agentStateManager.updateState('editor', { status: 'completed' });
     return result.output || content;
   }
 

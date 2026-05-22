@@ -6,6 +6,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { messageBus } from '../messageBus';
 import { toolRegistry } from '../tools/registry';
 import { providerFactory } from '../../providers/factory';
+import { agentStateManager } from '../state/AgentStateManager';
+import { agentEventBus, Events } from '../events/AgentEventBus';
 
 export interface SearchResult {
   title: string;
@@ -32,6 +34,7 @@ export class ResearcherAgent {
   }
 
   async start(conversationId?: string): Promise<string> {
+    agentStateManager.updateState('researcher', { status: 'working' });
     const convId = conversationId || uuidv4();
     await this.loop.start();
     return convId;
@@ -39,6 +42,7 @@ export class ResearcherAgent {
 
   stop(): void {
     this.loop.stop();
+    agentStateManager.updateState('researcher', { status: 'idle' });
   }
 
   // Request research
@@ -46,6 +50,7 @@ export class ResearcherAgent {
     query: string,
     conversationId?: string
   ): Promise<SearchResult[]> {
+    agentStateManager.updateState('researcher', { status: 'working', currentTask: 'request_research' });
     const message: AgentMessage = {
       id: uuidv4(),
       sender: AgentType.MANAGER,
@@ -59,11 +64,17 @@ export class ResearcherAgent {
     await messageBus.publish(message);
 
     // Return simulated results
-    return [{
+    const results: SearchResult[] = [{
       title: `Research results for: ${query}`,
       url: `https://example.com/search?q=${encodeURIComponent(query)}`,
       snippet: 'Relevant information found...',
     }];
+    
+    // Emit research complete event
+    agentEventBus.emit(Events.RESEARCHER_RESEARCH_COMPLETE, { query, results });
+    agentStateManager.updateState('researcher', { status: 'completed' });
+    
+    return results;
   }
 
   // Search the web using tool
