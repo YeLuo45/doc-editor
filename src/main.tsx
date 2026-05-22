@@ -1,11 +1,11 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App';
+import { EditorShell } from './shell/EditorShell';
 import './index.css'; // eslint-disable-line @typescript-eslint/no-require-imports
 import './i18n';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    <EditorShell />
   </React.StrictMode>
 );
