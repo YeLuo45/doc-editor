@@ -17,7 +17,6 @@ describe('DreamMemory', () => {
 
   it('should count dream cycles', () => {
     dreamMemory.wake({ id: '1', role: 'user', content: 'test', timestamp: Date.now() });
-    dreamMemory.wake({ id: '2', role: 'user', content: 'test2', timestamp: Date.now() });
     // Force dream by reaching threshold
     for (let i = 0; i < 50; i++) {
       dreamMemory.wake({ id: String(i), role: 'user', content: 'msg', timestamp: Date.now() });
@@ -34,8 +33,6 @@ describe('DreamMemory', () => {
   it('should save and load from localStorage', () => {
     dreamMemory.wake({ id: '1', role: 'user', content: 'persisted', timestamp: Date.now() });
     dreamMemory.save();
-    const mem2 = Object.getPrototypeOf(dreamMemory).constructor.prototype;
-    // Reload
     dreamMemory.load();
     expect(dreamMemory.getMessages().length).toBeGreaterThanOrEqual(0);
   });
