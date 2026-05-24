@@ -1,30 +1,44 @@
-import { useFlagsStore, ALL_FLAGS, FLAG_DESCRIPTIONS } from '../utils/featureFlags';
+import { useFeatureFlagsStore } from '../stores/featureFlagsStore';
 
 export function FeatureFlagsPanel() {
-  const { flags, toggleFlag, resetFlags } = useFlagsStore();
+  const { DREAM_MEMORY, AUTO_COMPACT, CROSS_SESSION, setFlag } = useFeatureFlagsStore();
+
+  const flags = [
+    { key: 'DREAM_MEMORY' as const, value: DREAM_MEMORY, label: 'Dream Memory', desc: '启用跨会话Dream两阶段记忆' },
+    { key: 'AUTO_COMPACT' as const, value: AUTO_COMPACT, label: 'Auto Compaction', desc: 'Token超80%阈值自动压缩' },
+    { key: 'CROSS_SESSION' as const, value: CROSS_SESSION, label: 'Cross Session', desc: 'App重启后恢复上一会话' },
+  ];
 
   return (
-    <div style={{ padding: 12, border: '1px solid #333', borderRadius: 6, background: '#12121a', color: '#f0f0f5' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <h3 style={{ margin: 0, fontSize: 14, color: '#f97316' }}>Feature Flags</h3>
-        <button onClick={resetFlags} style={{ fontSize: 11, padding: '2px 8px', cursor: 'pointer', background: '#1a1a25', color: '#a0a0b0', border: '1px solid #333', borderRadius: 4 }}>Reset</button>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {ALL_FLAGS.map(flag => (
-          <label key={flag} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13 }}>
+    <div style={{ padding: 16, maxWidth: 480, margin: '0 auto', color: '#f0f0f5' }}>
+      <h3 style={{ marginTop: 0 }}>⚙️ Feature Flags</h3>
+      {flags.map(({ key, value, label, desc }) => (
+        <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #333' }}>
+          <div>
+            <div style={{ fontWeight: 600 }}>{label}</div>
+            <div style={{ fontSize: 12, color: '#a0a0b0' }}>{desc}</div>
+          </div>
+          <label style={{ position: 'relative', width: 44, height: 24, display: 'inline-block' }}>
             <input
               type="checkbox"
-              checked={flags[flag]}
-              onChange={() => toggleFlag(flag)}
-              style={{ width: 16, height: 16, cursor: 'pointer' }}
+              checked={value}
+              onChange={e => setFlag(key, e.target.checked)}
+              style={{ opacity: 0, width: 0, height: 0 }}
             />
-            <div>
-              <span style={{ color: flags[flag] ? '#06b6d4' : '#666', fontWeight: 500 }}>{flag}</span>
-              <span style={{ color: '#666', fontSize: 11, marginLeft: 8 }}>{FLAG_DESCRIPTIONS[flag]}</span>
-            </div>
+            <span style={{
+              position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0,
+              background: value ? '#06b6d4' : '#333', borderRadius: 24,
+              transition: '0.2s',
+            }}>
+              <span style={{
+                position: 'absolute', content: '', width: 18, height: 18,
+                left: value ? 24 : 3, bottom: 3, background: '#fff',
+                borderRadius: '50%', transition: '0.2s',
+              }} />
+            </span>
           </label>
-        ))}
-      </div>
+        </div>
+      ))}
     </div>
   );
 }

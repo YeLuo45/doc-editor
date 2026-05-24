@@ -1,51 +1,54 @@
-import { useEffect } from 'react';
-import { useEditorStore } from './stores';
-import { useDreamStore, dreamMemory, useAutoCompact } from './utils/dreamMemory';
-import { useFlagsStore } from './utils/featureFlags';
-import { DreamMemoryStatus } from './components/DreamMemoryStatus';
-import { FeatureFlagsPanel } from './components/FeatureFlagsPanel';
-import { L0_META_RULES } from './utils/layeredMemory';
+import { useEffect } from 'react'
+import { useEditorStore } from './stores'
+import { useDreamStore, dreamMemory, useAutoCompact } from './utils/dreamMemory'
+import { useFlagsStore } from './utils/featureFlags'
+import { DreamMemoryStatus } from './components/DreamMemoryStatus'
+import { FeatureFlagsPanel } from './utils/featureFlags'
+import { L0_META_RULES } from './utils/layeredMemory'
+import { DreamDashboard } from './components/DreamDashboard'
+import { useState } from 'react'
 
 export default function App() {
-  const { messages, input, addMessage, setInput, clearMessages } = useEditorStore();
-  const { updateStats } = useDreamStore();
-  const { flags } = useFlagsStore();
-  const { checkAndCompact } = useAutoCompact();
+  const { messages, input, addMessage, setInput, clearMessages } = useEditorStore()
+  const { updateStats } = useDreamStore()
+  const { flags } = useFlagsStore()
+  const { checkAndCompact } = useAutoCompact()
+  const [showDashboard, setShowDashboard] = useState(false)
 
   useEffect(() => {
-    dreamMemory.setPhaseHandler((p) => useDreamStore.getState().setPhase(p));
-  }, []);
+    dreamMemory.setPhaseHandler((p) => useDreamStore.getState().setPhase(p))
+  }, [])
 
   useEffect(() => {
-    updateStats();
-  }, [updateStats]);
+    updateStats()
+  }, [updateStats])
 
   useEffect(() => {
     if (flags.AUTO_COMPACT) {
-      checkAndCompact();
+      checkAndCompact()
     }
-  }, [flags.AUTO_COMPACT, checkAndCompact]);
+  }, [flags.AUTO_COMPACT, checkAndCompact])
 
   const handleSend = () => {
-    if (!input.trim()) return;
-    addMessage('user', input);
+    if (!input.trim()) return
+    addMessage('user', input)
     if (flags.DREAM_MEMORY) {
-      dreamMemory.wake({ id: Date.now().toString(36), role: 'user', content: input, timestamp: Date.now() });
+      dreamMemory.wake({ id: Date.now().toString(36), role: 'user', content: input, timestamp: Date.now() })
     }
-    const response = `收到了: ${input}`;
-    addMessage('assistant', response);
+    const response = `收到了: ${input}`
+    addMessage('assistant', response)
     if (flags.DREAM_MEMORY) {
-      dreamMemory.wake({ id: Date.now().toString(36), role: 'assistant', content: response, timestamp: Date.now() });
+      dreamMemory.wake({ id: Date.now().toString(36), role: 'assistant', content: response, timestamp: Date.now() })
     }
-    setInput('');
-  };
+    setInput('')
+  }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
+      e.preventDefault()
+      handleSend()
     }
-  };
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0f', color: '#f0f0f5', padding: 20 }}>
@@ -71,6 +74,10 @@ export default function App() {
           </div>
         </div>
       )}
+      <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
+        <button onClick={() => setShowDashboard(!showDashboard)} style={{ padding: '6px 12px', background: '#1a1a2e', color: '#06b6d4', border: '1px solid #333', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Dashboard</button>
+      </div>
+      {showDashboard && <DreamDashboard />}
       <div style={{ marginTop: 20, padding: 16, border: '1px solid #222', borderRadius: 8, background: '#12121a', minHeight: 300 }}>
         {messages.length === 0 && (
           <div style={{ color: '#666', textAlign: 'center', paddingTop: 100 }}>
@@ -95,5 +102,5 @@ export default function App() {
         </div>
       </div>
     </div>
-  );
+  )
 }
