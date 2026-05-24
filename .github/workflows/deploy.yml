@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/v1-dream-memory
+      - feature/v4-dream-memory
 
 jobs:
   deploy:
