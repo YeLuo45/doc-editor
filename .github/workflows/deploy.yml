@@ -6,6 +6,7 @@ on:
       - feature/v1-dream-memory
       - feature/v4-dream-memory
       - feature/v5-offline-sync
+      - feature/v6-agent-canvas
 
 jobs:
   deploy:
