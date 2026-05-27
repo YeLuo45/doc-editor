@@ -1,8 +1,10 @@
 import { create } from 'zustand';
-import { dreamMemory, type DreamStats, type DreamArchive } from '../memory/DreamMemory';
+import { dreamMemory } from '../memory/DreamMemory';
+import type { DreamArchive } from '../memory/types';
 import { getL0Meta } from '../memory/layers/L0Meta';
 import { getL1Index } from '../memory/layers/L1Index';
 import { getL4Sessions, getRecentValidSessions } from '../memory/layers/L4Sessions';
+
 import { getCompactionStats } from '../memory/CompactionEngine';
 import type { L0Meta, L1Index, L4Session } from '../memory/types';
 

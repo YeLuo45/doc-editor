@@ -1,12 +1,12 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useEditorStore } from './stores'
 import { useDreamStore, dreamMemory, useAutoCompact } from './utils/dreamMemory'
 import { useFlagsStore } from './utils/featureFlags'
 import { DreamMemoryStatus } from './components/DreamMemoryStatus'
-import { FeatureFlagsPanel } from './utils/featureFlags'
+import { FeatureFlagsPanel } from './components/FeatureFlagsPanel'
 import { L0_META_RULES } from './utils/layeredMemory'
 import { DreamDashboard } from './components/DreamDashboard'
-import { useState } from 'react'
+import { SyncStatusPanel } from './components/SyncStatusPanel'
 
 export default function App() {
   const { messages, input, addMessage, setInput, clearMessages } = useEditorStore()
@@ -14,6 +14,15 @@ export default function App() {
   const { flags } = useFlagsStore()
   const { checkAndCompact } = useAutoCompact()
   const [showDashboard, setShowDashboard] = useState(false)
+  const [showSyncStatus, setShowSyncStatus] = useState(false)
+
+  const handleSyncClick = () => {
+    alert('Sync triggered! Implement sync logic with GistBackup.')
+  }
+
+  const handleConflictClick = () => {
+    alert('Conflict resolution UI - to be implemented.')
+  }
 
   useEffect(() => {
     dreamMemory.setPhaseHandler((p) => useDreamStore.getState().setPhase(p))
@@ -76,8 +85,14 @@ export default function App() {
       )}
       <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
         <button onClick={() => setShowDashboard(!showDashboard)} style={{ padding: '6px 12px', background: '#1a1a2e', color: '#06b6d4', border: '1px solid #333', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Dashboard</button>
+        <button onClick={() => setShowSyncStatus(!showSyncStatus)} style={{ padding: '6px 12px', background: '#1a1a2e', color: '#22c55e', border: '1px solid #333', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Sync Status</button>
       </div>
       {showDashboard && <DreamDashboard />}
+      {showSyncStatus && (
+        <div style={{ marginTop: 16 }}>
+          <SyncStatusPanel onSyncClick={handleSyncClick} onConflictClick={handleConflictClick} />
+        </div>
+      )}
       <div style={{ marginTop: 20, padding: 16, border: '1px solid #222', borderRadius: 8, background: '#12121a', minHeight: 300 }}>
         {messages.length === 0 && (
           <div style={{ color: '#666', textAlign: 'center', paddingTop: 100 }}>

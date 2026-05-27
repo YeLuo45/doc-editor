@@ -1,5 +1,5 @@
 import type { Message } from './types';
-import { getL4Sessions, setL4Sessions, saveSession } from './layers/L4Sessions';
+import { getL4Sessions, saveSession } from './layers/L4Sessions';
 import { saveSkill } from './layers/L3Skills';
 import { getL2Facts, setL2Facts } from './layers/L2Facts';
 
@@ -10,7 +10,9 @@ function estimateTokens(text: string): number {
   return Math.ceil(text.length / TOKENS_PER_CHAR);
 }
 
-function generateId(): string {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// @ts-ignore
+function _generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 

@@ -20,7 +20,7 @@ function Root() {
     }
   }, [])
 
-  const handleRestore = (session: any) => {
+  const handleRestore = (_session: any) => {
     setShowRecovery(false)
     updateStats()
   }

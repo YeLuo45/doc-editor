@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { useDreamStore } from '../stores/dreamStore';
 import { getL3Skills } from '../memory/layers/L3Skills';
-import { getCompactionStats } from '../memory/CompactionEngine';
 
 export function DreamDashboard() {
   const { phase, messageCount, tokenCount, dreamCount, archives, archivesCount, updateStats, refreshLayers, compactionStats } = useDreamStore();

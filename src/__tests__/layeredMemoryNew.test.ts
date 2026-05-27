@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { getL0Meta, addL0Rule } from '../memory/layers/L0Meta';
-import { getL1Index, registerSkillRoute, findSkillRoute } from '../memory/layers/L1Index';
-import { getL2Facts, setUserPreference, getUserPreference } from '../memory/layers/L2Facts';
+import { registerSkillRoute, findSkillRoute } from '../memory/layers/L1Index';
+import { setUserPreference, getUserPreference } from '../memory/layers/L2Facts';
 import { getL3Skills, saveSkill } from '../memory/layers/L3Skills';
-import { getL4Sessions, saveSession, getRecentValidSessions } from '../memory/layers/L4Sessions';
+import { saveSession, getRecentValidSessions } from '../memory/layers/L4Sessions';
 
 describe('L0 Layer', () => {
   beforeEach(() => localStorage.clear());
