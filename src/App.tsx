@@ -9,6 +9,8 @@ import { DreamDashboard } from './components/DreamDashboard'
 import { SyncStatusPanel } from './components/SyncStatusPanel'
 import { AgentCanvas } from './canvas'
 import type { CanvasMode } from './canvas'
+import { WritingCoachPanel } from './components/WritingCoachPanel'
+import { useBudgetStore } from './stores/budgetStore'
 
 export default function App() {
   const { messages, input, addMessage, setInput, clearMessages } = useEditorStore()
@@ -18,6 +20,8 @@ export default function App() {
   const [showDashboard, setShowDashboard] = useState(false)
   const [showSyncStatus, setShowSyncStatus] = useState(false)
   const [canvasMode, setCanvasMode] = useState<CanvasMode>('edit')
+  const [showCoach, setShowCoach] = useState(false)
+  const { isOverBudget, isOverDailyLimit } = useBudgetStore()
 
   const handleSyncClick = () => {
     alert('Sync triggered! Implement sync logic with GistBackup.')
@@ -90,6 +94,7 @@ export default function App() {
         <button onClick={() => setShowDashboard(!showDashboard)} style={{ padding: '6px 12px', background: '#1a1a2e', color: '#06b6d4', border: '1px solid #333', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Dashboard</button>
         <button onClick={() => setShowSyncStatus(!showSyncStatus)} style={{ padding: '6px 12px', background: '#1a1a2e', color: '#22c55e', border: '1px solid #333', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Sync Status</button>
         <button onClick={() => setCanvasMode(canvasMode === 'edit' ? 'canvas' : 'edit')} style={{ padding: '6px 12px', background: '#1a1a2e', color: '#f97316', border: '1px solid #333', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>{canvasMode === 'edit' ? 'Switch to Canvas' : 'Switch to Edit'}</button>
+        <button onClick={() => setShowCoach(!showCoach)} style={{ padding: '6px 12px', background: isOverBudget || isOverDailyLimit ? '#4a1a1a' : '#1a1a2e', color: isOverBudget || isOverDailyLimit ? '#ff6b6b' : '#22d3ee', border: '1px solid #333', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Writing Coach {isOverBudget || isOverDailyLimit ? '⚠️' : ''}</button>
       </div>
       {showDashboard && <DreamDashboard />}
       {showSyncStatus && (
@@ -97,6 +102,7 @@ export default function App() {
           <SyncStatusPanel onSyncClick={handleSyncClick} onConflictClick={handleConflictClick} />
         </div>
       )}
+      {showCoach && <WritingCoachPanel />}
       <div style={{ marginTop: 20, padding: 16, border: '1px solid #222', borderRadius: 8, background: '#12121a', minHeight: 300 }}>
         {messages.length === 0 && (
           <div style={{ color: '#666', textAlign: 'center', paddingTop: 100 }}>
