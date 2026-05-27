@@ -7,6 +7,8 @@ import { FeatureFlagsPanel } from './components/FeatureFlagsPanel'
 import { L0_META_RULES } from './utils/layeredMemory'
 import { DreamDashboard } from './components/DreamDashboard'
 import { SyncStatusPanel } from './components/SyncStatusPanel'
+import { AgentCanvas } from './canvas'
+import type { CanvasMode } from './canvas'
 
 export default function App() {
   const { messages, input, addMessage, setInput, clearMessages } = useEditorStore()
@@ -15,6 +17,7 @@ export default function App() {
   const { checkAndCompact } = useAutoCompact()
   const [showDashboard, setShowDashboard] = useState(false)
   const [showSyncStatus, setShowSyncStatus] = useState(false)
+  const [canvasMode, setCanvasMode] = useState<CanvasMode>('edit')
 
   const handleSyncClick = () => {
     alert('Sync triggered! Implement sync logic with GistBackup.')
@@ -86,6 +89,7 @@ export default function App() {
       <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
         <button onClick={() => setShowDashboard(!showDashboard)} style={{ padding: '6px 12px', background: '#1a1a2e', color: '#06b6d4', border: '1px solid #333', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Dashboard</button>
         <button onClick={() => setShowSyncStatus(!showSyncStatus)} style={{ padding: '6px 12px', background: '#1a1a2e', color: '#22c55e', border: '1px solid #333', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Sync Status</button>
+        <button onClick={() => setCanvasMode(canvasMode === 'edit' ? 'canvas' : 'edit')} style={{ padding: '6px 12px', background: '#1a1a2e', color: '#f97316', border: '1px solid #333', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>{canvasMode === 'edit' ? 'Switch to Canvas' : 'Switch to Edit'}</button>
       </div>
       {showDashboard && <DreamDashboard />}
       {showSyncStatus && (
@@ -116,6 +120,7 @@ export default function App() {
           <button onClick={clearMessages} style={{ padding: '12px 24px', background: 'transparent', color: '#a0a0b0', border: '1px solid #333', borderRadius: 8, cursor: 'pointer' }}>清空</button>
         </div>
       </div>
+      <AgentCanvas mode={canvasMode} onModeSwitch={setCanvasMode} />
     </div>
   )
 }
