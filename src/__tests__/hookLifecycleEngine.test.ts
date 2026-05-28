@@ -14,7 +14,7 @@ describe('HookLifecycleEngine', () => {
   beforeEach(() => {
     engine = new HookLifecycleEngine();
     engine.clearHistory();
-    engine.getRegistry().clearAll();
+    engine.getRegistry().clear();
   });
 
   describe('Hook Registration', () => {

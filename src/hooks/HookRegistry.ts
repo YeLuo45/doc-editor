@@ -1,242 +1,196 @@
 /**
- * HookRegistry - Manages hook registration with priority sorting, once execution, and condition filtering
+ * HookRegistry - Global hook registry for doc-editor
+ * Manages registration and firing of all document and collaboration hooks
  */
 
-import { HookType, TrustLevel, type HookConfig, type HookRegistryEntry } from './types';
-import { HookContext } from './HookContext';
-import { TrustHierarchy } from './TrustHierarchy';
+export type HookPriority = 'high' | 'normal' | 'low';
+
+export interface HookRegistration<T = unknown> {
+  id: string;
+  name: string;
+  handler: (data: T) => void | Promise<void>;
+  priority: HookPriority;
+  enabled: boolean;
+}
+
+export type DocumentHookEvent =
+  | 'document:create'
+  | 'document:open'
+  | 'document:close'
+  | 'document:save'
+  | 'document:delete'
+  | 'document:rename'
+  | 'document:move'
+  | 'document:update';
+
+export type CollabHookEvent =
+  | 'collab:join'
+  | 'collab:leave'
+  | 'collab:operation'
+  | 'collab:sync'
+  | 'collab:conflict'
+  | 'collab:presence';
+
+export type PluginHookEvent =
+  | 'plugin:load'
+  | 'plugin:unload'
+  | 'plugin:enable'
+  | 'plugin:disable'
+  | 'plugin:error';
+
+export type AnyHookEvent = DocumentHookEvent | CollabHookEvent | PluginHookEvent;
 
 export class HookRegistry {
-  private hooks: Map<HookType, HookRegistryEntry[]>;
-  private trustHierarchy: TrustHierarchy;
-  private static readonly STORAGE_KEY = 'doc-editor-hooks-registry';
+  private hooks: Map<string, HookRegistration[]> = new Map();
+  private sortedHooks: Map<string, boolean> = new Map();
 
-  constructor(trustHierarchy?: TrustHierarchy) {
+  constructor() {
     this.hooks = new Map();
-    this.trustHierarchy = trustHierarchy || new TrustHierarchy();
-    this.initializeHooksMap();
+    this.sortedHooks = new Map();
   }
 
   /**
-   * Initialize empty arrays for all hook types
+   * Register a hook handler
    */
-  private initializeHooksMap(): void {
-    Object.values(HookType).forEach(type => {
-      this.hooks.set(type, []);
-    });
-  }
-
-  /**
-   * Register a new hook
-   */
-  public register(config: HookConfig): boolean {
-    const { type, trustLevel, priority } = config;
-
-    // Check priority permission
-    if (!this.trustHierarchy.isPriorityAllowed(trustLevel, priority)) {
-      const maxPriority = this.trustHierarchy.getMaxPriority(trustLevel);
-      config.priority = maxPriority;
+  register<T = unknown>(
+    event: string,
+    name: string,
+    handler: (data: T) => void | Promise<void>,
+    priority: HookPriority = 'normal'
+  ): string {
+    const id = `${event}:${name}:${Date.now()}`;
+    if (!this.hooks.has(event)) {
+      this.hooks.set(event, []);
     }
-
-    // Check modify permission
-    if (!this.trustHierarchy.canModify(trustLevel)) {
-      return false;
-    }
-
-    const entry: HookRegistryEntry = {
-      ...config,
-      executed: false,
-    };
-
-    const hooks = this.hooks.get(type) || [];
-    hooks.push(entry);
-    hooks.sort((a, b) => b.priority - a.priority);
-    this.hooks.set(type, hooks);
-
-    return true;
+    const registrations = this.hooks.get(event)!;
+    registrations.push({ id, name, handler, priority, enabled: true });
+    this.sortedHooks.set(event, false); // needs re-sort
+    return id;
   }
 
   /**
    * Unregister a hook by id
    */
-  public unregister(id: string): boolean {
-    for (const [_type, hooks] of this.hooks.entries()) {
-      const index = hooks.findIndex(h => h.id === id);
-      if (index !== -1) {
-        const hook = hooks[index];
-        if (!this.trustHierarchy.canDelete(hook.trustLevel)) {
-          return false;
+  unregister(hookId: string): boolean {
+    for (const [event, registrations] of this.hooks.entries()) {
+      const idx = registrations.findIndex(r => r.id === hookId);
+      if (idx !== -1) {
+        registrations.splice(idx, 1);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Unregister all hooks for an event or name
+   */
+  unregisterAll(eventOrName?: string): number {
+    let count = 0;
+    if (!eventOrName) {
+      for (const registrations of this.hooks.values()) {
+        count += registrations.length;
+      }
+      this.hooks.clear();
+      return count;
+    }
+    for (const [event, registrations] of this.hooks.entries()) {
+      const before = registrations.length;
+      if (event === eventOrName || registrations.some(r => r.name === eventOrName)) {
+        const filtered = registrations.filter(
+          r => r.event !== eventOrName && r.name !== eventOrName
+        );
+        count += before - filtered.length;
+        this.hooks.set(event, filtered);
+      }
+    }
+    return count;
+  }
+
+  /**
+   * Fire all handlers for an event
+   */
+  async fire<T = unknown>(event: string, data: T): Promise<void> {
+    if (!this.hooks.has(event)) return;
+    const registrations = this.getSortedHooks(event);
+    const promises: Promise<void>[] = [];
+    for (const reg of registrations) {
+      if (reg.enabled) {
+        try {
+          const result = reg.handler(data);
+          if (result instanceof Promise) {
+            promises.push(result);
+          }
+        } catch (err) {
+          console.error(`Hook ${reg.id} error:`, err);
         }
-        hooks.splice(index, 1);
-        return true;
       }
     }
-    return false;
+    await Promise.allSettled(promises);
   }
 
   /**
-   * Get all registered hooks for a type
+   * Get all registered events
    */
-  public getHooks(type: HookType): HookRegistryEntry[] {
-    return this.hooks.get(type) || [];
+  getEvents(): string[] {
+    return Array.from(this.hooks.keys());
   }
 
   /**
-   * Get all registered hooks
+   * Get hook count
    */
-  public getAllHooks(): Map<HookType, HookRegistryEntry[]> {
-    return new Map(this.hooks);
-  }
-
-  /**
-   * Get hooks filtered by condition
-   */
-  public getHooksFiltered(type: HookType, context: HookContext): HookRegistryEntry[] {
-    const hooks = this.getHooks(type);
-    return hooks.filter(hook => {
-      if (hook.enabled === false) return false;
-      if (hook.once && hook.executed) return false;
-      if (hook.condition && !hook.condition(context)) return false;
-      return true;
-    });
-  }
-
-  /**
-   * Check if hook exists
-   */
-  public has(type: HookType, id: string): boolean {
-    const hooks = this.getHooks(type);
-    return hooks.some(h => h.id === id);
-  }
-
-  /**
-   * Enable a hook
-   */
-  public enable(id: string): boolean {
-    return this.setEnabled(id, true);
-  }
-
-  /**
-   * Disable a hook
-   */
-  public disable(id: string): boolean {
-    return this.setEnabled(id, false);
-  }
-
-  /**
-   * Set hook enabled state
-   */
-  private setEnabled(id: string, enabled: boolean): boolean {
-    for (const [_type, hooks] of this.hooks.entries()) {
-      const hook = hooks.find(h => h.id === id);
-      if (hook) {
-        hook.enabled = enabled;
-        return true;
-      }
+  getHookCount(event?: string): number {
+    if (event) {
+      return this.hooks.get(event)?.length ?? 0;
     }
-    return false;
-  }
-
-  /**
-   * Mark hook as executed (for once hooks)
-   */
-  public markExecuted(type: HookType, id: string): void {
-    const hooks = this.getHooks(type);
-    const hook = hooks.find(h => h.id === id);
-    if (hook) {
-      hook.executed = true;
-      hook.lastExecutedAt = Date.now();
-    }
-  }
-
-  /**
-   * Reset executed state for all hooks
-   */
-  public resetExecuted(): void {
-    for (const hooks of this.hooks.values()) {
-      hooks.forEach(h => {
-        h.executed = false;
-      });
-    }
-  }
-
-  /**
-   * Clear all hooks for a type
-   */
-  public clear(type: HookType): void {
-    this.hooks.set(type, []);
-  }
-
-  /**
-   * Clear all hooks
-   */
-  public clearAll(): void {
-    this.initializeHooksMap();
-  }
-
-  /**
-   * Get hook count by type
-   */
-  public count(type: HookType): number {
-    return this.getHooks(type).length;
-  }
-
-  /**
-   * Get total hook count
-   */
-  public totalCount(): number {
     let total = 0;
-    for (const hooks of this.hooks.values()) {
-      total += hooks.length;
+    for (const regs of this.hooks.values()) {
+      total += regs.length;
     }
     return total;
   }
 
   /**
-   * Get hooks by trust level
+   * Enable/disable a hook
    */
-  public getByTrustLevel(trustLevel: TrustLevel): Array<{ type: HookType; entry: HookRegistryEntry }> {
-    const results: Array<{ type: HookType; entry: HookRegistryEntry }> = [];
-    for (const [type, hooks] of this.hooks.entries()) {
-      for (const entry of hooks) {
-        if (entry.trustLevel === trustLevel) {
-          results.push({ type, entry });
-        }
+  setEnabled(hookId: string, enabled: boolean): boolean {
+    for (const registrations of this.hooks.values()) {
+      const reg = registrations.find(r => r.id === hookId);
+      if (reg) {
+        reg.enabled = enabled;
+        return true;
       }
     }
-    return results;
+    return false;
   }
 
   /**
-   * Save registry to localStorage
+   * Check if an event has handlers
    */
-  public save(): void {
-    try {
-      const data: Array<[HookType, HookRegistryEntry[]]> = [];
-      this.hooks.forEach((hooks, type) => {
-        data.push([type, hooks]);
-      });
-      localStorage.setItem(HookRegistry.STORAGE_KEY, JSON.stringify(data));
-    } catch {
-      // localStorage might be unavailable
-    }
+  hasHandlers(event: string): boolean {
+    const regs = this.hooks.get(event);
+    return regs !== undefined && regs.length > 0 && regs.some(r => r.enabled);
   }
 
   /**
-   * Load registry from localStorage
+   * Clear all hooks
    */
-  public load(): void {
-    try {
-      const data = localStorage.getItem(HookRegistry.STORAGE_KEY);
-      if (!data) return;
-      const parsed: Array<[HookType, HookRegistryEntry[]]> = JSON.parse(data);
-      parsed.forEach(([type, hooks]) => {
-        this.hooks.set(type, hooks);
-      });
-    } catch {
-      // localStorage might be unavailable or invalid
+  clear(): void {
+    this.hooks.clear();
+    this.sortedHooks.clear();
+  }
+
+  private getSortedHooks(event: string): HookRegistration[] {
+    if (!this.sortedHooks.get(event)) {
+      const regs = this.hooks.get(event) ?? [];
+      const priorityOrder = { high: 0, normal: 1, low: 2 };
+      regs.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+      this.hooks.set(event, regs);
+      this.sortedHooks.set(event, true);
     }
+    return this.hooks.get(event)!;
   }
 }
 
-export default HookRegistry;
+// Singleton instance
+export const globalHookRegistry = new HookRegistry();
