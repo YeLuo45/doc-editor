@@ -3,7 +3,7 @@
  * Handles registration, triggering, and chain execution
  */
 
-import { HookType, TrustLevel, HookConfig, HookResult, HookHistoryEntry, ChainOptions } from './types';
+import { HookType, TrustLevel, type HookConfig, type HookResult, type HookHistoryEntry, type ChainOptions, type HookFn } from './types';
 import { HookContext } from './HookContext';
 import { HookRegistry } from './HookRegistry';
 import { TrustHierarchy } from './TrustHierarchy';
@@ -49,71 +49,71 @@ export class HookLifecycleEngine {
    * Register a before hook
    */
   public beforeCreate(id: string, fn: (ctx: HookContext) => unknown, trustLevel?: TrustLevel, priority?: number): boolean {
-    return this.register({ id, type: HookType.BEFORE_CREATE, fn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
+    return this.register({ id, type: HookType.BEFORE_CREATE, fn: fn as HookFn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
   }
 
   public afterCreate(id: string, fn: (ctx: HookContext) => unknown, trustLevel?: TrustLevel, priority?: number): boolean {
-    return this.register({ id, type: HookType.AFTER_CREATE, fn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
+    return this.register({ id, type: HookType.AFTER_CREATE, fn: fn as HookFn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
   }
 
   public beforeUpdate(id: string, fn: (ctx: HookContext) => unknown, trustLevel?: TrustLevel, priority?: number): boolean {
-    return this.register({ id, type: HookType.BEFORE_UPDATE, fn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
+    return this.register({ id, type: HookType.BEFORE_UPDATE, fn: fn as HookFn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
   }
 
   public afterUpdate(id: string, fn: (ctx: HookContext) => unknown, trustLevel?: TrustLevel, priority?: number): boolean {
-    return this.register({ id, type: HookType.AFTER_UPDATE, fn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
+    return this.register({ id, type: HookType.AFTER_UPDATE, fn: fn as HookFn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
   }
 
   public beforeDelete(id: string, fn: (ctx: HookContext) => unknown, trustLevel?: TrustLevel, priority?: number): boolean {
-    return this.register({ id, type: HookType.BEFORE_DELETE, fn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
+    return this.register({ id, type: HookType.BEFORE_DELETE, fn: fn as HookFn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
   }
 
   public afterDelete(id: string, fn: (ctx: HookContext) => unknown, trustLevel?: TrustLevel, priority?: number): boolean {
-    return this.register({ id, type: HookType.AFTER_DELETE, fn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
+    return this.register({ id, type: HookType.AFTER_DELETE, fn: fn as HookFn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
   }
 
   public beforeRender(id: string, fn: (ctx: HookContext) => unknown, trustLevel?: TrustLevel, priority?: number): boolean {
-    return this.register({ id, type: HookType.BEFORE_RENDER, fn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
+    return this.register({ id, type: HookType.BEFORE_RENDER, fn: fn as HookFn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
   }
 
   public afterRender(id: string, fn: (ctx: HookContext) => unknown, trustLevel?: TrustLevel, priority?: number): boolean {
-    return this.register({ id, type: HookType.AFTER_RENDER, fn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
+    return this.register({ id, type: HookType.AFTER_RENDER, fn: fn as HookFn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
   }
 
   public beforeSave(id: string, fn: (ctx: HookContext) => unknown, trustLevel?: TrustLevel, priority?: number): boolean {
-    return this.register({ id, type: HookType.BEFORE_SAVE, fn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
+    return this.register({ id, type: HookType.BEFORE_SAVE, fn: fn as HookFn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
   }
 
   public afterSave(id: string, fn: (ctx: HookContext) => unknown, trustLevel?: TrustLevel, priority?: number): boolean {
-    return this.register({ id, type: HookType.AFTER_SAVE, fn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
+    return this.register({ id, type: HookType.AFTER_SAVE, fn: fn as HookFn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
   }
 
   public beforeLoad(id: string, fn: (ctx: HookContext) => unknown, trustLevel?: TrustLevel, priority?: number): boolean {
-    return this.register({ id, type: HookType.BEFORE_LOAD, fn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
+    return this.register({ id, type: HookType.BEFORE_LOAD, fn: fn as HookFn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
   }
 
   public afterLoad(id: string, fn: (ctx: HookContext) => unknown, trustLevel?: TrustLevel, priority?: number): boolean {
-    return this.register({ id, type: HookType.AFTER_LOAD, fn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
+    return this.register({ id, type: HookType.AFTER_LOAD, fn: fn as HookFn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
   }
 
   public beforeConnect(id: string, fn: (ctx: HookContext) => unknown, trustLevel?: TrustLevel, priority?: number): boolean {
-    return this.register({ id, type: HookType.BEFORE_CONNECT, fn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
+    return this.register({ id, type: HookType.BEFORE_CONNECT, fn: fn as HookFn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
   }
 
   public afterConnect(id: string, fn: (ctx: HookContext) => unknown, trustLevel?: TrustLevel, priority?: number): boolean {
-    return this.register({ id, type: HookType.AFTER_CONNECT, fn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
+    return this.register({ id, type: HookType.AFTER_CONNECT, fn: fn as HookFn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
   }
 
   public beforeDisconnect(id: string, fn: (ctx: HookContext) => unknown, trustLevel?: TrustLevel, priority?: number): boolean {
-    return this.register({ id, type: HookType.BEFORE_DISCONNECT, fn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
+    return this.register({ id, type: HookType.BEFORE_DISCONNECT, fn: fn as HookFn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
   }
 
   public afterDisconnect(id: string, fn: (ctx: HookContext) => unknown, trustLevel?: TrustLevel, priority?: number): boolean {
-    return this.register({ id, type: HookType.AFTER_DISCONNECT, fn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
+    return this.register({ id, type: HookType.AFTER_DISCONNECT, fn: fn as HookFn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
   }
 
   public onError(id: string, fn: (ctx: HookContext) => unknown, trustLevel?: TrustLevel, priority?: number): boolean {
-    return this.register({ id, type: HookType.ON_ERROR, fn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
+    return this.register({ id, type: HookType.ON_ERROR, fn: fn as HookFn, trustLevel: trustLevel || TrustLevel.USER, priority: priority || 50, once: false });
   }
 
   // ============ Trigger Methods ============
@@ -153,7 +153,7 @@ export class HookLifecycleEngine {
   /**
    * Trigger with chain execution (before -> main -> after pattern)
    */
-  public async triggerChain(type: HookType, payload: Record<string, unknown>, options?: ChainOptions): Promise<HookResult> {
+  public async triggerChain(type: HookType, payload: Record<string, unknown>, _options?: ChainOptions): Promise<HookResult> {
     const beforeType = HookType.BEFORE_CREATE;
     const afterType = HookType.AFTER_CREATE;
     const context = new HookContext({ type, payload });

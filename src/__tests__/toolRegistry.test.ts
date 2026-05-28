@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { MCPToolRegistry, resetToolRegistry, STORAGE_KEY } from '../mcp/ToolRegistry';
-import type { MCPTool, ToolFilter } from '../mcp/types';
+import type { MCPTool } from '../mcp/types';
 
 describe('MCPToolRegistry', () => {
   let registry: MCPToolRegistry;

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { MCPResourceRegistry, resetResourceRegistry, STORAGE_KEY } from '../mcp/ResourceRegistry';
-import type { MCPResource, ResourceFilter } from '../mcp/types';
+import type { MCPResource } from '../mcp/types';
 
 describe('MCPResourceRegistry', () => {
   let registry: MCPResourceRegistry;

@@ -3,7 +3,7 @@
  * Implements system > developer > user > guest trust hierarchy
  */
 
-import { TrustLevel, TrustPermissions } from './types';
+import { TrustLevel, type TrustPermissions } from './types';
 
 export class TrustHierarchy {
   private static readonly LEVEL_ORDER: TrustLevel[] = [

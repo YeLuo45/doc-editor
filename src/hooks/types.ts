@@ -4,7 +4,7 @@
  */
 
 /** 17 Lifecycle Hook Types */
-export enum HookType {
+export const enum HookType {
   // Creation hooks
   BEFORE_CREATE = 'beforeCreate',
   AFTER_CREATE = 'afterCreate',

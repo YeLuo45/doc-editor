@@ -114,7 +114,7 @@ describe('HookRegistry', () => {
 
   describe('Condition Filtering', () => {
     it('should filter hooks by condition', () => {
-      const condition = (ctx: HookContext) => ctx.get('enabled') === true;
+      const condition = (context: HookContext) => context.get('enabled') === true;
       registry.register({ id: 'cond-hook', type: HookType.BEFORE_CREATE, fn: vi.fn(), trustLevel: TrustLevel.USER, priority: 50, once: false, condition });
       const contextWithCondition = HookContext.forBefore(HookType.BEFORE_CREATE, { enabled: true });
       const filteredWith = registry.getHooksFiltered(HookType.BEFORE_CREATE, contextWithCondition);

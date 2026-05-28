@@ -3,7 +3,7 @@
  * Provides payload, metadata, and trust level for hook execution
  */
 
-import { HookType, TrustLevel, HookPhase, HookContextPayload, HookMetadata } from './types';
+import { HookType, TrustLevel, HookPhase, type HookContextPayload, type HookMetadata } from './types';
 
 export class HookContext {
   public readonly id: string;

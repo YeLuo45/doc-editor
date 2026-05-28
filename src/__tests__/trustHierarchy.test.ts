@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { TrustHierarchy } from '../hooks/TrustHierarchy';
-import { TrustLevel, TrustPermissions } from '../hooks/types';
+import { TrustLevel } from '../hooks/types';
 
 describe('TrustHierarchy', () => {
   let hierarchy: TrustHierarchy;

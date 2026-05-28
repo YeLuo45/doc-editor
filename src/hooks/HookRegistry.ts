@@ -2,7 +2,7 @@
  * HookRegistry - Manages hook registration with priority sorting, once execution, and condition filtering
  */
 
-import { HookType, TrustLevel, HookConfig, HookRegistryEntry } from './types';
+import { HookType, TrustLevel, type HookConfig, type HookRegistryEntry } from './types';
 import { HookContext } from './HookContext';
 import { TrustHierarchy } from './TrustHierarchy';
 
@@ -60,7 +60,7 @@ export class HookRegistry {
    * Unregister a hook by id
    */
   public unregister(id: string): boolean {
-    for (const [type, hooks] of this.hooks.entries()) {
+    for (const [_type, hooks] of this.hooks.entries()) {
       const index = hooks.findIndex(h => h.id === id);
       if (index !== -1) {
         const hook = hooks[index];
@@ -127,7 +127,7 @@ export class HookRegistry {
    * Set hook enabled state
    */
   private setEnabled(id: string, enabled: boolean): boolean {
-    for (const [type, hooks] of this.hooks.entries()) {
+    for (const [_type, hooks] of this.hooks.entries()) {
       const hook = hooks.find(h => h.id === id);
       if (hook) {
         hook.enabled = enabled;
