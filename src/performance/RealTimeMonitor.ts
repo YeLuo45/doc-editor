@@ -3,6 +3,8 @@
  * Uses requestAnimationFrame for sampling performance metrics.
  */
 
+import { PerfProfiler } from './PerfProfiler';
+
 export interface MonitorSample {
   timestamp: number;
   fps: number;
@@ -18,6 +20,8 @@ export interface MonitorConfig {
   fpsHistorySize: number;
   enableFpsTracking: boolean;
   enableMemoryTracking: boolean;
+  maxSamples?: number;
+  alertThresholds?: { memory?: number; cpu?: number };
 }
 
 const DEFAULT_CONFIG: MonitorConfig = {
@@ -33,10 +37,6 @@ export class RealTimeMonitor {
   private samples: MonitorSample[] = [];
   private maxSamples: number = 300;
   private isRunning: boolean = false;
-  private rafId: number | null = null;
-  private intervalId: ReturnType<typeof setInterval> | null = null;
-  private callbacks: Set<MonitorCallback> = new Set();
-  private lastFrameTime: number = 0;
   private frameCount: number = 0;
   private fpsHistory: number[] = [];
   private currentFps: number = 0;
@@ -46,103 +46,19 @@ export class RealTimeMonitor {
     this.config = { ...DEFAULT_CONFIG, ...config };
   }
 
-  /**
-   * Start the real-time monitor
-   */
-  start(): void {
-    if (this.isRunning) {
-      return;
+  private getMemoryUsage(): number {
+    if (typeof performance !== 'undefined' && 'memory' in performance) {
+      return (performance as any).memory?.usedJSHeapSize || 0;
     }
-
-    this.isRunning = true;
-    this.lastFrameTime = performance.now();
-    this.frameCount = 0;
-
-    if (this.config.enableFpsTracking) {
-      this.startFpsTracking();
-    }
-
-    this.startIntervalSampling();
+    return 0;
   }
 
-  /**
-   * Stop the real-time monitor
-   */
-  stop(): void {
-    if (!this.isRunning) {
-      return;
-    }
-
-    this.isRunning = false;
-
-    if (this.rafId !== null) {
-      cancelAnimationFrame(this.rafId);
-      this.rafId = null;
-    }
-
-    if (this.intervalId !== null) {
-      clearInterval(this.intervalId);
-      this.intervalId = null;
-    }
-  }
-
-  /**
-   * Check if monitor is running
-   */
-  getIsRunning(): boolean {
-    return this.isRunning;
-  }
-
-  /**
-   * Start FPS tracking using requestAnimationFrame
-   */
-  private startFpsTracking(): void {
-    const trackFrame = (currentTime: number): void => {
-      if (!this.isRunning) {
-        return;
-      }
-
-      this.frameCount++;
-      const elapsed = currentTime - this.lastFrameTime;
-
-      if (elapsed >= 1000) {
-        this.currentFps = Math.round((this.frameCount * 1000) / elapsed);
-        this.fpsHistory.push(this.currentFps);
-
-        if (this.fpsHistory.length > this.config.fpsHistorySize) {
-          this.fpsHistory = this.fpsHistory.slice(-this.config.fpsHistorySize);
-        }
-
-        this.frameCount = 0;
-        this.lastFrameTime = currentTime;
-      }
-
-      this.rafId = requestAnimationFrame(trackFrame);
-    };
-
-    this.rafId = requestAnimationFrame(trackFrame);
-  }
-
-  /**
-   * Start interval-based sampling
-   */
-  private startIntervalSampling(): void {
-    this.intervalId = setInterval(() => {
-      if (this.isRunning) {
-        this.takeSample();
-      }
-    }, this.config.sampleInterval);
-  }
-
-  /**
-   * Take a sample of current metrics
-   */
   private takeSample(): void {
     const summaries = this.profiler.getAllSummaries();
-    const activeModules = summaries.map((s) => s.moduleName);
+    const activeModules = summaries.map((s: { moduleName: string }) => s.moduleName);
     const avgResponseTime =
       summaries.length > 0
-        ? summaries.reduce((sum, s) => sum + s.avgTime, 0) / summaries.length
+        ? summaries.reduce((sum: number, s: { avgTime: number }) => sum + s.avgTime, 0) / summaries.length
         : 0;
 
     const memoryUsage = this.getMemoryUsage();
@@ -156,191 +72,196 @@ export class RealTimeMonitor {
     };
 
     this.samples.push(sample);
-
     if (this.samples.length > this.maxSamples) {
-      this.samples = this.samples.slice(-this.maxSamples);
+      this.samples.shift();
     }
-
-    this.notifyCallbacks(sample);
+    this.sampleCallbacks.forEach(cb => cb(sample));
   }
 
-  /**
-   * Get current memory usage
-   */
-  private getMemoryUsage(): number {
-    if (typeof performance !== 'undefined' && 'memory' in performance) {
-      const memInfo = (performance as unknown as { memory: { usedJSHeapSize: number } }).memory;
-      return memInfo.usedJSHeapSize;
-    }
-    return 0;
+  private startFpsTracking(): void {
+    if (!this.config.enableFpsTracking) return;
+
+    const measureFrame = (timestamp: number) => {
+      if (!this.isRunning) return;
+      this.frameCount++;
+      const elapsed = timestamp - (this.lastFrameTime || timestamp);
+      if (elapsed >= 1000) {
+        this.currentFps = Math.round((this.frameCount * 1000) / elapsed);
+        this.fpsHistory.push(this.currentFps);
+        if (this.fpsHistory.length > this.config.fpsHistorySize) {
+          this.fpsHistory.shift();
+        }
+        this.frameCount = 0;
+        this.lastFrameTime = timestamp;
+        this.takeSample();
+      }
+      requestAnimationFrame(measureFrame);
+    };
+
+    requestAnimationFrame(measureFrame);
   }
 
-  /**
-   * Get current FPS
-   */
-  getCurrentFps(): number {
-    return this.currentFps;
+  private lastFrameTime: number = 0;
+
+  public start(): this {
+    if (this.isRunning) return this;
+    this.isRunning = true;
+    this.frameCount = 0;
+    this.lastFrameTime = performance.now();
+    this.startFpsTracking();
+    return this;
   }
 
-  /**
-   * Get FPS history
-   */
-  getFpsHistory(): number[] {
-    return [...this.fpsHistory];
+  public stop(): this {
+    this.isRunning = false;
+    return this;
   }
 
-  /**
-   * Get average FPS over the history
-   */
-  getAverageFps(): number {
-    if (this.fpsHistory.length === 0) {
-      return 0;
-    }
-    return Math.round(this.fpsHistory.reduce((sum, fps) => sum + fps, 0) / this.fpsHistory.length);
+  public recordSample(): this {
+    this.takeSample();
+    return this;
   }
 
-  /**
-   * Get all collected samples
-   */
-  getSamples(): MonitorSample[] {
+  public getSamples(): MonitorSample[] {
     return [...this.samples];
   }
 
-  /**
-   * Get samples within a time range
-   */
-  getSamplesInRange(startTime: number, endTime: number): MonitorSample[] {
-    return this.samples.filter((s) => s.timestamp >= startTime && s.timestamp <= endTime);
-  }
-
-  /**
-   * Get the latest sample
-   */
-  getLatestSample(): MonitorSample | null {
-    return this.samples.length > 0 ? this.samples[this.samples.length - 1] : null;
-  }
-
-  /**
-   * Get samples count
-   */
-  getSamplesCount(): number {
-    return this.samples.length;
-  }
-
-  /**
-   * Register a callback for sample updates
-   */
-  subscribe(callback: MonitorCallback): () => void {
-    this.callbacks.add(callback);
-    return () => {
-      this.callbacks.delete(callback);
+  public getStats(): { count: number; min: number; max: number; avg: number; p50: number; p95: number; p99: number } {
+    const fpsValues = this.fpsHistory;
+    if (fpsValues.length === 0) {
+      return { count: 0, min: 0, max: 0, avg: 0, p50: 0, p95: 0, p99: 0 };
+    }
+    const sorted = [...fpsValues].sort((a, b) => a - b);
+    const sum = sorted.reduce((a, b) => a + b, 0);
+    return {
+      count: sorted.length,
+      min: sorted[0],
+      max: sorted[sorted.length - 1],
+      avg: Math.round(sum / sorted.length),
+      p50: sorted[Math.floor(sorted.length * 0.5)],
+      p95: sorted[Math.floor(sorted.length * 0.95)],
+      p99: sorted[Math.floor(sorted.length * 0.99)],
     };
   }
 
-  /**
-   * Notify all callbacks of a new sample
-   */
-  private notifyCallbacks(sample: MonitorSample): void {
-    this.callbacks.forEach((callback) => {
-      try {
-        callback(sample);
-      } catch {
-        // Ignore callback errors
-      }
-    });
-  }
-
-  /**
-   * Clear all samples
-   */
-  clearSamples(): void {
+  public reset(): this {
     this.samples = [];
     this.fpsHistory = [];
+    this.frameCount = 0;
     this.currentFps = 0;
+    return this;
   }
 
-  /**
-   * Update configuration
-   */
-  updateConfig(config: Partial<MonitorConfig>): void {
-    this.config = { ...this.config, ...config };
+  public onSample(callback: MonitorCallback): this {
+    this.sampleCallbacks.push(callback);
+    return this;
   }
 
-  /**
-   * Get current configuration
-   */
-  getConfig(): MonitorConfig {
+  private sampleCallbacks: MonitorCallback[] = [];
+
+  public getConfig(): MonitorConfig {
     return { ...this.config };
   }
 
-  /**
-   * Force a sample (useful for testing)
-   */
-  forceSample(): void {
-    this.takeSample();
+  public updateConfig(config: Partial<MonitorConfig>): this {
+    this.config = { ...this.config, ...config };
+    return this;
   }
 
-  /**
-   * Get memory trend (last N samples)
-   */
-  getMemoryTrend(count: number = 10): 'increasing' | 'decreasing' | 'stable' {
-    const recent = this.samples.slice(-count);
-    if (recent.length < 2) {
-      return 'stable';
-    }
+  public getAlertManager(): any {
+    return this.alertManager;
+  }
 
-    const first = recent[0].memoryUsage;
-    const last = recent[recent.length - 1].memoryUsage;
-    const diff = last - first;
-    const threshold = first * 0.1; // 10% change threshold
-
-    if (diff > threshold) {
-      return 'increasing';
-    }
-    if (diff < -threshold) {
-      return 'decreasing';
-    }
+  public getMemoryTrend(_length: number): string {
+    if (this.samples.length < 3) return 'stable';
+    const memSamples = this.samples.slice(-5).map(s => s.memoryUsage);
+    const first = memSamples[0], last = memSamples[memSamples.length - 1];
+    if (last > first * 1.1) return 'increasing';
+    if (last < first * 0.9) return 'decreasing';
     return 'stable';
   }
 
-  /**
-   * Get performance summary
-   */
-  getPerformanceSummary(): {
-    avgFps: number;
-    minFps: number;
-    maxFps: number;
-    avgMemory: number;
-    currentFps: number;
-    currentMemory: number;
-    samplesCount: number;
-    memoryTrend: 'increasing' | 'decreasing' | 'stable';
-  } {
-    const minFps = this.fpsHistory.length > 0 ? Math.min(...this.fpsHistory) : 0;
-    const maxFps = this.fpsHistory.length > 0 ? Math.max(...this.fpsHistory) : 0;
-    const avgMemory =
-      this.samples.length > 0
-        ? this.samples.reduce((sum, s) => sum + s.memoryUsage, 0) / this.samples.length
-        : 0;
+  public forceSample(): this {
+    this.takeSample();
+    return this;
+  }
 
+  public getLatestSample(): MonitorSample | null {
+    return this.samples[this.samples.length - 1] || null;
+  }
+
+  public getSamplesCount(): number {
+    return this.samples.length;
+  }
+
+  public getSamplesInRange(startTime: number, endTime: number): MonitorSample[] {
+    return this.samples.filter(s => s.timestamp >= startTime && s.timestamp <= endTime);
+  }
+
+  public getPerformanceSummary(): { avgFps: number; minFps: number; maxFps: number; avgMemory: number; currentFps: number; currentMemory: number; samplesCount: number; memoryTrend: string } {
+    const stats = this.getStats();
+    const memSamples = this.samples.map(s => s.memoryUsage);
+    const memAvg = memSamples.length > 0 ? memSamples.reduce((a, b) => a + b, 0) / memSamples.length : 0;
     return {
-      avgFps: this.getAverageFps(),
-      minFps,
-      maxFps,
-      avgMemory,
+      avgFps: stats.avg,
+      minFps: stats.min,
+      maxFps: stats.max,
+      avgMemory: memAvg,
       currentFps: this.currentFps,
       currentMemory: this.getMemoryUsage(),
       samplesCount: this.samples.length,
-      memoryTrend: this.getMemoryTrend(),
+      memoryTrend: this.getMemoryTrend(5),
     };
+  }
+
+  public getAverageFps(): number {
+    return this.currentFps;
+  }
+
+  public subscribe(callback: MonitorCallback): () => void {
+    this.sampleCallbacks.push(callback);
+    return () => {
+      const idx = this.sampleCallbacks.indexOf(callback);
+      if (idx !== -1) this.sampleCallbacks.splice(idx, 1);
+    };
+  }
+
+  public clearSamples(): this {
+    this.samples = [];
+    return this;
+  }
+
+  public getIsRunning(): boolean {
+    return this.isRunning;
+  }
+
+  public getCurrentFps(): number {
+    return this.currentFps;
+  }
+
+  public getFpsHistory(): number[] {
+    return [...this.fpsHistory];
+  }
+
+  private alertManager: any = null;
+
+  public startAutoSample(): this {
+    if (this.isRunning) return this;
+    this.start();
+    return this;
+  }
+
+  public stopAutoSample(): this {
+    this.stop();
+    return this;
   }
 }
 
 let _defaultMonitor: RealTimeMonitor | null = null;
-export const defaultMonitor: RealTimeMonitor = {
+export const defaultMonitor = {
   get profiler() {
     if (!_defaultMonitor) _defaultMonitor = new RealTimeMonitor();
-    return _defaultMonitor.profiler;
+    return (_defaultMonitor as any).profiler;
   },
   start() { return this; },
   stop() { return this; },
@@ -349,9 +270,9 @@ export const defaultMonitor: RealTimeMonitor = {
   getStats() { return { count: 0, min: 0, max: 0, avg: 0, p50: 0, p95: 0, p99: 0 }; },
   reset() { return this; },
   onSample() { return this; },
-  getConfig() { return { sampleInterval: 5000, maxSamples: 1000, alertThresholds: { memory: 80, cpu: 80 } }; },
+  getConfig() { return { sampleInterval: 5000, maxSamples: 1000, alertThresholds: { memory: 80, cpu: 80 }, fpsHistorySize: 60, enableFpsTracking: true, enableMemoryTracking: true } as MonitorConfig; },
   updateConfig() { return this; },
   getAlertManager() { return null!; },
   startAutoSample() { return this; },
   stopAutoSample() { return this; },
-};
+} as any as RealTimeMonitor;
