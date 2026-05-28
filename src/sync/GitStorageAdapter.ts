@@ -228,8 +228,9 @@ export async function getDocumentVersions(config: GitStorageConfig, documentKey:
 /**
  * Validate GitHub token
  */
-export async function validateGitHubToken(token: string): Promise<boolean> {
-  if (!token || !token.trim()) return false;
+export async function validateGitHubToken(token: string): Promise<boolean | null> {
+  const trimmed = token?.trim();
+  if (!trimmed) return null;
   try {
     const response = await fetch(`${GITHUB_API_URL}/user`, {
       headers: { 'Accept': 'application/vnd.github+json', 'Authorization': `Bearer ${token}`, 'X-GitHub-Api-Version': '2022-11-28' }

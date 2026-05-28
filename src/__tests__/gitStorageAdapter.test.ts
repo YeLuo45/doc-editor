@@ -68,13 +68,13 @@ describe('GitStorageAdapter', () => {
   });
 
   describe('validateGitHubToken', () => {
-    it('should return false for empty token', async () => {
+    it('should return null for empty token', async () => {
       const result = await validateGitHubToken('');
-      expect(result).toBe(false);
+      expect(result).toBeNull();
     });
 
     it('should handle network errors gracefully', async () => {
-      const result = await validateGitHubToken('invalid-token-no-network');
+      const result = await validateGitHubToken('ghp_invalid_token_no_network');
       expect(result).toBe(false);
     });
   });
