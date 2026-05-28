@@ -3,7 +3,6 @@ import {
   getFile,
   deleteFile,
   listFiles,
-  pushDocument,
   retrieveDocument,
   buildDocumentPath,
   validateGitHubToken,
@@ -91,14 +90,6 @@ describe('GitStorageAdapter', () => {
       const config: GitStorageConfig = { owner: 'test', repo: 'test-repo', token: '   ' };
       const result = await validateRepoAccess(config);
       expect(result.valid).toBe(false);
-    });
-  });
-
-  describe('pushDocument', () => {
-    it('should handle empty token gracefully', async () => {
-      const config: GitStorageConfig = { owner: 'test', repo: 'test-repo', token: '' };
-      // When token is empty/whitespace, should not attempt network call
-      expect(config.token).toBe('');
     });
   });
 

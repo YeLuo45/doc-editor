@@ -156,6 +156,7 @@ export async function deleteFile(
  * List files in repository directory
  */
 export async function listFiles(config: GitStorageConfig, path: string = ''): Promise<RepoFile[]> {
+  if (!config.token || !config.token.trim()) return [];
   try {
     const url = `${GITHUB_API_URL}/repos/${config.owner}/${config.repo}/contents/${path}?ref=${config.branch || 'main'}`;
     
