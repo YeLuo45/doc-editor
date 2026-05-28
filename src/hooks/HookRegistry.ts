@@ -69,6 +69,28 @@ export class HookRegistry {
   }
 
   /**
+   * Register hook from config object (HookLifecycleEngine compatibility)
+   */
+  registerFromConfig(config: {
+    id: string;
+    type?: string;
+    name?: string;
+    fn: (data: unknown) => void | Promise<void>;
+    priority?: number;
+    enabled?: boolean;
+    trustLevel?: string;
+  }): boolean {
+    const event = config.type ? String(config.type) : 'unknown';
+    const name = config.name || config.id;
+    const priority = config.priority !== undefined
+      ? (config.priority <= 25 ? 'high' : config.priority >= 75 ? 'low' : 'normal')
+      : 'normal';
+    const handler = config.fn;
+    const id = this.register(event, name, handler, priority);
+    return id.length > 0;
+  }
+
+  /**
    * Unregister a hook by id
    */
   unregister(hookId: string): boolean {
@@ -189,6 +211,87 @@ export class HookRegistry {
       this.sortedHooks.set(event, true);
     }
     return this.hooks.get(event)!;
+  }
+
+  /**
+   * Get hooks filtered by event name and context (for HookLifecycleEngine compatibility)
+   */
+  getHooksFiltered(event: string | number, _context?: unknown): HookRegistration[] {
+    // Handle both string and enum value lookups
+    const key = String(event);
+    return this.getSortedHooks(key);
+  }
+
+  /**
+   * Count hooks by event name (for HookLifecycleEngine compatibility)
+   */
+  count(event?: string): number {
+    if (event) {
+      return this.hooks.get(event)?.length ?? 0;
+    }
+    let total = 0;
+    for (const regs of this.hooks.values()) {
+      total += regs.length;
+    }
+    return total;
+  }
+
+  /**
+   * Total count of all hooks
+   */
+  totalCount(): number {
+    let total = 0;
+    for (const regs of this.hooks.values()) {
+      total += regs.length;
+    }
+    return total;
+  }
+
+  /**
+   * Enable a hook by id
+   */
+  enable(hookId: string): boolean {
+    return this.setEnabled(hookId, true);
+  }
+
+  /**
+   * Disable a hook by id
+   */
+  disable(hookId: string): boolean {
+    return this.setEnabled(hookId, false);
+  }
+
+  /**
+   * Unregister a hook by id
+   */
+  unregister(hookId: string): boolean {
+    for (const [event, registrations] of this.hooks.entries()) {
+      const idx = registrations.findIndex(r => r.id === hookId);
+      if (idx !== -1) {
+        registrations.splice(idx, 1);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Mark hook as executed
+   */
+  markExecuted(event: string, hookId: string): void {
+    // No-op for basic registry, HookLifecycleEngine tracks this separately
+  }
+
+  /**
+   * Get hooks by trust level (for HookLifecycleEngine compatibility)
+   */
+  getByTrustLevel(_trustLevel: string): HookRegistration[] {
+    // Trust level not in basic HookRegistry - return all
+    let all: HookRegistration[] = [];
+    for (const regs of this.hooks.values()) {
+      all = all.concat(regs);
+    }
+    return all;
   }
 }
 

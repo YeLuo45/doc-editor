@@ -42,7 +42,7 @@ export class HookLifecycleEngine {
    * Register a hook
    */
   public register(config: HookConfig): boolean {
-    return this.registry.register(config);
+    return this.registry.registerFromConfig(config);
   }
 
   /**
@@ -136,8 +136,11 @@ export class HookLifecycleEngine {
           this.registry.markExecuted(type, hook.id);
         }
       } catch (error) {
-        const errorCtx = HookContext.forError({ error: String(error) }, hook.trustLevel);
-        await this.trigger(HookType.ON_ERROR, errorCtx);
+        // Only trigger ON_ERROR if not already in an ON_ERROR handler (prevent recursion)
+        if (type !== HookType.ON_ERROR) {
+          const errorCtx = HookContext.forError({ error: String(error) }, hook.trustLevel);
+          await this.trigger(HookType.ON_ERROR, errorCtx);
+        }
         if (context.preventDefault) break;
       }
     }
