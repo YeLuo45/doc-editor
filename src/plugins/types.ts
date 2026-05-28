@@ -1,4 +1,7 @@
-// 插件系统类型定义
+/**
+ * Plugin System Type Definitions
+ * Core types for PluginRegistry, ProviderFactory, PluginSandbox, HookManager
+ */
 
 export type PluginType = 'formatter' | 'ai' | 'collaboration' | 'tool';
 
@@ -78,4 +81,46 @@ export interface PluginHostState {
   plugins: Map<string, PluginInstance>;
   featureFlags: Map<string, PluginFeatureFlag>;
   activeSandboxes: Set<string>;
+}
+
+// Provider types (for LLM provider system)
+export type AIProvider = 'openai' | 'anthropic' | 'azure' | 'ollama' | 'local';
+
+export interface ProviderConfig {
+  provider: AIProvider;
+  apiKey: string;
+  baseUrl?: string;
+  model?: string;
+  extra?: Record<string, string>;
+}
+
+export interface AIProviderInterface {
+  name: AIProvider;
+  apiKey: string;
+  baseUrl?: string;
+  model?: string;
+  extra?: Record<string, string>;
+}
+
+// Hook types for plugin lifecycle
+export type PluginHookType =
+  | 'plugin.beforeLoad'
+  | 'plugin.afterLoad'
+  | 'plugin.beforeActivate'
+  | 'plugin.afterActivate'
+  | 'plugin.beforeDeactivate'
+  | 'plugin.afterDeactivate'
+  | 'plugin.beforeExecute'
+  | 'plugin.afterExecute'
+  | 'editor.beforeSave'
+  | 'editor.afterSave'
+  | 'editor.beforeRender'
+  | 'editor.afterRender';
+
+export interface PluginHookConfig {
+  id: string;
+  type: PluginHookType;
+  fn: (payload: unknown) => Promise<unknown> | unknown;
+  pluginId: string;
+  priority?: number;
 }
