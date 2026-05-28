@@ -16,7 +16,7 @@ import {
   updateEdge,
   getNodeState,
   getEdgeState,
-} from '../canvas/v26';
+} from '../canvas';
 
 describe('V26 AgentCanvas', () => {
   let canvas: AgentCanvas;
