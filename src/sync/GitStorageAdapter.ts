@@ -229,6 +229,7 @@ export async function getDocumentVersions(config: GitStorageConfig, documentKey:
  * Validate GitHub token
  */
 export async function validateGitHubToken(token: string): Promise<boolean> {
+  if (!token || !token.trim()) return false;
   try {
     const response = await fetch(`${GITHUB_API_URL}/user`, {
       headers: { 'Accept': 'application/vnd.github+json', 'Authorization': `Bearer ${token}`, 'X-GitHub-Api-Version': '2022-11-28' }
@@ -243,6 +244,7 @@ export async function validateGitHubToken(token: string): Promise<boolean> {
  * Validate repository access
  */
 export async function validateRepoAccess(config: GitStorageConfig): Promise<{ valid: boolean; error?: string }> {
+  if (!config.token || !config.token.trim()) return { valid: false, error: 'Token is empty' };
   try {
     const url = `${GITHUB_API_URL}/repos/${config.owner}/${config.repo}`;
     const headers: Record<string, string> = {

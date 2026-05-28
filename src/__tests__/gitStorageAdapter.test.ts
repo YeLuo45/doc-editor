@@ -74,8 +74,8 @@ describe('GitStorageAdapter', () => {
     });
 
     it('should handle network errors gracefully', async () => {
-      const result = await validateGitHubToken('invalid-token');
-      expect(typeof result).toBe('boolean');
+      const result = await validateGitHubToken('invalid-token-no-network');
+      expect(result).toBe(false);
     });
   });
 
