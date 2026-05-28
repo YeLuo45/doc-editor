@@ -1,333 +1,278 @@
 /**
- * ConflictResolver - 并发编辑冲突检测与合并策略
+ * V25 Offline-first Sync Engine - Conflict Resolution Module
+ * Handles conflict detection and merging strategies
  */
 
-import type { DocumentSnapshot } from './DeltaEngine';
+export interface ConflictStrategy {
+  type: 'last-write-wins' | 'first-write-wins' | 'merge' | 'manual';
+  priority?: 'local' | 'remote';
+}
 
-export interface ConflictInfo {
-  documentKey: string;
-  localVersion: string;
-  remoteVersion: string;
-  localContent: string;
-  remoteContent: string;
+export interface ConflictRecord {
+  id: string;
+  entityType: string;
+  entityId: string;
+  localValue: unknown;
+  remoteValue: unknown;
   localTimestamp: number;
   remoteTimestamp: number;
+  strategy: ConflictStrategy;
+  resolved: boolean;
+  resolution?: 'local' | 'remote' | 'merged';
+  mergedValue?: unknown;
 }
 
-export interface ResolutionStrategy {
-  type: 'local-wins' | 'remote-wins' | 'merge' | 'manual';
-  confidence: number;
-  mergedContent?: string;
+export interface MergeResult {
+  success: boolean;
+  value: unknown;
+  hasConflicts: boolean;
+  conflictCount: number;
 }
 
-export interface ConflictResolution {
-  strategy: ResolutionStrategy;
-  resolvedContent: string;
-  requiresManualReview: boolean;
-  conflictDetails?: string[];
-}
+export class ConflictResolver {
+  private conflicts: Map<string, ConflictRecord> = new Map();
+  private defaultStrategy: ConflictStrategy = { type: 'last-write-wins' };
+  private metrics: ConflictMetrics;
 
-export interface LineDiff {
-  lineNumber: number;
-  type: 'added' | 'removed' | 'modified' | 'unchanged';
-  localContent?: string;
-  remoteContent?: string;
-}
-
-/**
- * 检测两个版本之间是否存在冲突
- */
-export function detectConflict(
-  local: DocumentSnapshot,
-  remote: DocumentSnapshot
-): boolean {
-  // 如果hash相同，没有冲突
-  if (local.hash === remote.hash) {
-    return false;
+  constructor(defaultStrategy?: ConflictStrategy) {
+    if (defaultStrategy) {
+      this.defaultStrategy = defaultStrategy;
+    }
+    this.metrics = {
+      totalDetected: 0,
+      totalResolved: 0,
+      autoResolved: 0,
+      manualResolved: 0,
+      mergeAttempts: 0,
+      mergeSuccesses: 0,
+    };
   }
-  
-  // 如果内容完全相同，没有冲突
-  if (local.content === remote.content) {
-    return false;
-  }
-  
-  return true;
-}
 
-/**
- * 获取冲突信息
- */
-export function getConflictInfo(
-  documentKey: string,
-  local: DocumentSnapshot,
-  remote: DocumentSnapshot
-): ConflictInfo {
-  return {
-    documentKey,
-    localVersion: local.version,
-    remoteVersion: remote.version,
-    localContent: local.content,
-    remoteContent: remote.content,
-    localTimestamp: local.timestamp,
-    remoteTimestamp: remote.timestamp
-  };
-}
-
-/**
- * 计算行级差异
- */
-export function computeLineDiff(local: string, remote: string): LineDiff[] {
-  // Handle empty strings specially
-  if (local === '' && remote === '') {
-    return [{ lineNumber: 1, type: 'unchanged', localContent: '' }];
-  }
-  if (local === '' && remote !== '') {
-    return remote.split('\n').map((line, i) => ({
-      lineNumber: i + 1,
-      type: 'added' as const,
-      remoteContent: line
-    }));
-  }
-  if (local !== '' && remote === '') {
-    return local.split('\n').map((line, i) => ({
-      lineNumber: i + 1,
-      type: 'removed' as const,
-      localContent: line
-    }));
-  }
-  
-  const localLines = local.split('\n');
-  const remoteLines = remote.split('\n');
-  
-  const diff: LineDiff[] = [];
-  const maxLen = Math.max(localLines.length, remoteLines.length);
-  
-  for (let i = 0; i < maxLen; i++) {
-    const localLine = localLines[i];
-    const remoteLine = remoteLines[i];
+  /**
+   * Detect if there's a conflict between local and remote versions
+   */
+  detectConflict(
+    entityType: string,
+    entityId: string,
+    localValue: unknown,
+    remoteValue: unknown,
+    localTimestamp: number,
+    remoteTimestamp: number
+  ): boolean {
+    // Conflict exists if values differ and timestamps are close
+    const timeDiff = Math.abs(localTimestamp - remoteTimestamp);
+    const valuesDiffer = JSON.stringify(localValue) !== JSON.stringify(remoteValue);
     
-    if (localLine === undefined && remoteLine !== undefined) {
-      diff.push({ lineNumber: i + 1, type: 'added', remoteContent: remoteLine });
-    } else if (remoteLine === undefined && localLine !== undefined) {
-      diff.push({ lineNumber: i + 1, type: 'removed', localContent: localLine });
-    } else if (localLine !== remoteLine) {
-      diff.push({ 
-        lineNumber: i + 1, 
-        type: 'modified', 
-        localContent: localLine, 
-        remoteContent: remoteLine 
-      });
-    } else {
-      diff.push({ lineNumber: i + 1, type: 'unchanged', localContent: localLine });
-    }
-  }
-  
-  return diff;
-}
-
-/**
- * 分析冲突类型
- */
-export function analyzeConflictType(diff: LineDiff[]): {
-  hasAdditions: boolean;
-  hasDeletions: boolean;
-  hasModifications: boolean;
-  conflictRegions: Array<{ start: number; end: number }>;
-} {
-  const hasAdditions = diff.some(d => d.type === 'added');
-  const hasDeletions = diff.some(d => d.type === 'removed');
-  const hasModifications = diff.some(d => d.type === 'modified');
-  
-  // 找出冲突区域（连续的非unchanged行）
-  const conflictRegions: Array<{ start: number; end: number }> = [];
-  let regionStart: number | null = null;
-  
-  for (let i = 0; i < diff.length; i++) {
-    if (diff[i].type !== 'unchanged') {
-      if (regionStart === null) {
-        regionStart = i;
-      }
-    } else {
-      if (regionStart !== null) {
-        conflictRegions.push({ start: regionStart, end: i - 1 });
-        regionStart = null;
-      }
-    }
-  }
-  
-  if (regionStart !== null) {
-    conflictRegions.push({ start: regionStart, end: diff.length - 1 });
-  }
-  
-  return { hasAdditions, hasDeletions, hasModifications, conflictRegions };
-}
-
-/**
- * 自动合并（简单的三向合并）
- */
-export function autoMerge(local: string, remote: string, base: string): string {
-  const localLines = local.split('\n');
-  const remoteLines = remote.split('\n');
-  const baseLines = base.split('\n');
-  
-  const result: string[] = [];
-  const maxLen = Math.max(localLines.length, remoteLines.length, baseLines.length);
-  
-  for (let i = 0; i < maxLen; i++) {
-    const localLine = localLines[i];
-    const remoteLine = remoteLines[i];
-    const baseLine = baseLines[i];
+    // Consider it a conflict if values differ and within 5 second window
+    const isConflict = valuesDiffer && timeDiff < 5000;
     
-    if (localLine === remoteLine) {
-      // 双方一致，使用任一方
-      result.push(localLine ?? '');
-    } else if (localLine === baseLine) {
-      // local没有变，remote变了，采用remote
-      result.push(remoteLine ?? '');
-    } else if (remoteLine === baseLine) {
-      // remote没有变，local变了，采用local
-      result.push(localLine ?? '');
+    if (isConflict) {
+      const conflictId = this.generateConflictId(entityType, entityId);
+      const record: ConflictRecord = {
+        id: conflictId,
+        entityType,
+        entityId,
+        localValue,
+        remoteValue,
+        localTimestamp,
+        remoteTimestamp,
+        strategy: this.defaultStrategy,
+        resolved: false,
+      };
+      this.conflicts.set(conflictId, record);
+      this.metrics.totalDetected++;
+    }
+    
+    return isConflict;
+  }
+
+  /**
+   * Check if a conflict exists for a given entity
+   */
+  hasConflict(entityType: string, entityId: string): boolean {
+    const conflictId = this.generateConflictId(entityType, entityId);
+    const record = this.conflicts.get(conflictId);
+    return record ? !record.resolved : false;
+  }
+
+  /**
+   * Get conflict record by ID
+   */
+  getConflict(conflictId: string): ConflictRecord | undefined {
+    return this.conflicts.get(conflictId);
+  }
+
+  /**
+   * Get all active (unresolved) conflicts
+   */
+  getActiveConflicts(): ConflictRecord[] {
+    return Array.from(this.conflicts.values()).filter(c => !c.resolved);
+  }
+
+  /**
+   * Resolve a conflict using specified strategy
+   */
+  resolve(conflictId: string, strategy: ConflictStrategy, mergedValue?: unknown): boolean {
+    const conflict = this.conflicts.get(conflictId);
+    if (!conflict || conflict.resolved) return false;
+
+    let resolution: 'local' | 'remote' | 'merged';
+    let finalValue: unknown;
+
+    switch (strategy.type) {
+      case 'last-write-wins':
+        resolution = conflict.localTimestamp > conflict.remoteTimestamp ? 'local' : 'remote';
+        finalValue = resolution === 'local' ? conflict.localValue : conflict.remoteValue;
+        break;
+      case 'first-write-wins':
+        resolution = conflict.localTimestamp < conflict.remoteTimestamp ? 'local' : 'remote';
+        finalValue = resolution === 'local' ? conflict.localValue : conflict.remoteValue;
+        break;
+      case 'merge':
+        resolution = 'merged';
+        finalValue = mergedValue;
+        this.metrics.mergeSuccesses++;
+        break;
+      case 'manual':
+        resolution = 'local'; // Default fallback
+        finalValue = conflict.localValue;
+        break;
+      default:
+        return false;
+    }
+
+    conflict.resolution = resolution;
+    conflict.resolved = true;
+    if (resolution === 'merged' && finalValue !== undefined) {
+      conflict.mergedValue = finalValue;
+    }
+
+    this.metrics.totalResolved++;
+    if (strategy.type === 'manual') {
+      this.metrics.manualResolved++;
     } else {
-      // 双方都变了，冲突 - 使用local优先
-      result.push(localLine ?? '');
+      this.metrics.autoResolved++;
     }
-  }
-  
-  return result.join('\n');
-}
 
-/**
- * 选择分辨率策略
- */
-export function chooseStrategy(
-  conflict: ConflictInfo,
-  diff: LineDiff[]
-): ResolutionStrategy {
-  const analysis = analyzeConflictType(diff);
-  
-  // 如果没有冲突区域，选择 local-wins
-  if (analysis.conflictRegions.length === 0) {
-    return { type: 'local-wins', confidence: 1.0 };
+    return true;
   }
-  
-  // 计算冲突行数
-  const totalConflictLines = analysis.conflictRegions.reduce(
-    (sum, r) => sum + (r.end - r.start + 1), 0
-  );
-  
-  // 如果冲突区域很小（<=3行），可以自动合并
-  if (totalConflictLines <= 3) {
-    return { type: 'merge', confidence: 0.8 };
-  }
-  
-  // 冲突较大时，根据时间戳决定
-  if (conflict.localTimestamp > conflict.remoteTimestamp) {
-    return { type: 'local-wins', confidence: 0.7 };
-  } else {
-    return { type: 'remote-wins', confidence: 0.7 };
-  }
-}
 
-/**
- * 解决冲突
- */
-export function resolveConflict(
-  conflict: ConflictInfo,
-  baseContent: string
-): ConflictResolution {
-  const diff = computeLineDiff(conflict.localContent, conflict.remoteContent);
-  const strategy = chooseStrategy(conflict, diff);
-  const analysis = analyzeConflictType(diff);
-  
-  let resolvedContent: string;
-  let requiresManualReview = false;
-  const conflictDetails: string[] = [];
-  
-  switch (strategy.type) {
-    case 'local-wins':
-      resolvedContent = conflict.localContent;
-      break;
-      
-    case 'remote-wins':
-      resolvedContent = conflict.remoteContent;
-      break;
-      
-    case 'merge':
-      resolvedContent = autoMerge(
-        conflict.localContent,
-        conflict.remoteContent,
-        baseContent
-      );
-      break;
-      
-    case 'manual':
-      requiresManualReview = true;
-      resolvedContent = conflict.localContent; // 临时使用local
-      break;
-  }
-  
-  // 生成冲突详情
-  if (analysis.conflictRegions.length > 0) {
-    for (const region of analysis.conflictRegions) {
-      conflictDetails.push(
-        `Lines ${region.start + 1}-${region.end + 1}: conflict`
-      );
+  /**
+   * Merge changes from multiple sources
+   */
+  mergeChanges(changes: Array<{ value: unknown; timestamp: number }>): MergeResult {
+    this.metrics.mergeAttempts++;
+
+    if (changes.length === 0) {
+      return { success: true, value: null, hasConflicts: false, conflictCount: 0 };
     }
+
+    if (changes.length === 1) {
+      return { success: true, value: changes[0].value, hasConflicts: false, conflictCount: 0 };
+    }
+
+    // Check for conflicts
+    const uniqueValues = new Set(changes.map(c => JSON.stringify(c.value)));
+    const hasConflicts = uniqueValues.size > 1;
+
+    // For simple merge, take the most recent value
+    const sorted = [...changes].sort((a, b) => b.timestamp - a.timestamp);
+    const mostRecent = sorted[0].value;
+
+    return {
+      success: true,
+      value: mostRecent,
+      hasConflicts,
+      conflictCount: hasConflicts ? uniqueValues.size - 1 : 0,
+    };
   }
-  
-  return {
-    strategy,
-    resolvedContent,
-    requiresManualReview,
-    conflictDetails: conflictDetails.length > 0 ? conflictDetails : undefined
-  };
-}
 
-/**
- * 标记冲突为已解决
- */
-export function markResolved(documentKey: string): void {
-  // 存储已解决的冲突记录
-  const resolvedKey = `doc-editor-conflict-resolved-${documentKey}`;
-  localStorage.setItem(resolvedKey, JSON.stringify({
-    resolvedAt: Date.now()
-  }));
-}
+  /**
+   * Auto-resolve all conflicts using default strategy
+   */
+  autoResolveAll(): number {
+    const activeConflicts = this.getActiveConflicts();
+    let resolvedCount = 0;
 
-/**
- * 检查冲突是否已解决
- */
-export function isResolved(documentKey: string): boolean {
-  const resolvedKey = `doc-editor-conflict-resolved-${documentKey}`;
-  const data = localStorage.getItem(resolvedKey);
-  return data !== null;
-}
+    for (const conflict of activeConflicts) {
+      if (this.resolve(conflict.id, this.defaultStrategy)) {
+        resolvedCount++;
+      }
+    }
 
-/**
- * 清除已解决标记
- */
-export function clearResolved(documentKey: string): void {
-  const resolvedKey = `doc-editor-conflict-resolved-${documentKey}`;
-  localStorage.removeItem(resolvedKey);
-}
-
-/**
- * 生成冲突报告
- */
-export function generateConflictReport(conflicts: ConflictInfo[]): string {
-  const lines: string[] = [
-    `# Conflict Resolution Report`,
-    `Generated: ${new Date().toISOString()}`,
-    `Total Conflicts: ${conflicts.length}`,
-    ``
-  ];
-  
-  for (const conflict of conflicts) {
-    lines.push(`## Document: ${conflict.documentKey}`);
-    lines.push(`- Local Version: ${conflict.localVersion} (${new Date(conflict.localTimestamp).toISOString()})`);
-    lines.push(`- Remote Version: ${conflict.remoteVersion} (${new Date(conflict.remoteTimestamp).toISOString()})`);
-    lines.push(``);
+    return resolvedCount;
   }
-  
-  return lines.join('\n');
+
+  /**
+   * Get current snapshot for debugging
+   */
+  getSnapshot(): object {
+    return {
+      activeConflictCount: this.getActiveConflicts().length,
+      totalConflicts: this.conflicts.size,
+      metrics: { ...this.metrics },
+    };
+  }
+
+  /**
+   * Reset the resolver to initial state
+   */
+  reset(): void {
+    this.conflicts.clear();
+    this.metrics = {
+      totalDetected: 0,
+      totalResolved: 0,
+      autoResolved: 0,
+      manualResolved: 0,
+      mergeAttempts: 0,
+      mergeSuccesses: 0,
+    };
+  }
+
+  /**
+   * Get a report of conflict resolution state
+   */
+  getReport(): object {
+    const activeConflicts = this.getActiveConflicts();
+    return {
+      totalConflicts: this.conflicts.size,
+      activeConflicts: activeConflicts.length,
+      resolvedConflicts: this.conflicts.size - activeConflicts.length,
+      autoResolved: this.metrics.autoResolved,
+      manualResolved: this.metrics.manualResolved,
+      mergeSuccessRate: this.metrics.mergeAttempts > 0
+        ? this.metrics.mergeSuccesses / this.metrics.mergeAttempts
+        : 0,
+    };
+  }
+
+  /**
+   * Export metrics for external monitoring
+   */
+  exportMetrics(): object {
+    return {
+      ...this.metrics,
+      conflictRate: this.metrics.totalDetected > 0
+        ? this.metrics.totalResolved / this.metrics.totalDetected
+        : 0,
+      resolutionRate: this.metrics.totalDetected > 0
+        ? this.metrics.totalResolved / this.metrics.totalDetected
+        : 1,
+    };
+  }
+
+  private generateConflictId(entityType: string, entityId: string): string {
+    return `conflict_${entityType}_${entityId}_${Date.now()}`;
+  }
 }
+
+interface ConflictMetrics {
+  totalDetected: number;
+  totalResolved: number;
+  autoResolved: number;
+  manualResolved: number;
+  mergeAttempts: number;
+  mergeSuccesses: number;
+}
+
+export default ConflictResolver;
