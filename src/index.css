@@ -199,28 +199,22 @@ a:hover {
  * ========================================================================== */
 .app-shell {
   display: grid;
-  grid-template-columns: var(--layout-sidebar-width) 1fr;
+  grid-template-columns:
+    var(--layout-sidebar-width) 1fr var(--layout-inspector-width);
   grid-template-rows: var(--layout-topbar-height) 1fr;
   grid-template-areas:
-    "sidebar topbar"
-    "sidebar main";
+    "sidebar topbar topbar"
+    "sidebar main inspector";
   height: 100vh;
   width: 100vw;
   background: var(--color-bg-base);
 }
 
-.app-shell--with-inspector {
-  grid-template-columns:
-    var(--layout-sidebar-width) 1fr var(--layout-inspector-width);
-  grid-template-areas:
-    "sidebar topbar topbar"
-    "sidebar main inspector";
-}
-
 .app-shell--canvas-mode {
   grid-template-areas:
-    "canvas canvas"
-    "canvas canvas";
+    "canvas canvas canvas"
+    "canvas canvas canvas";
+  grid-template-columns: 1fr;
 }
 
 .app-shell--canvas-mode .sidebar,
@@ -914,8 +908,37 @@ a:hover {
 }
 
 /* ==========================================================================
- * Chat input bar
+ * Chat input bar (sticky bottom)
  * ========================================================================== */
+.chat-composer {
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-surface);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 5;
+  box-shadow: 0 -8px 24px -16px rgba(0, 0, 0, 0.5);
+}
+
+.chat-composer__inner {
+  padding: var(--space-3) var(--space-5);
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-end;
+}
+
+.chat-composer__inner .chat-input__textarea {
+  flex: 1;
+  min-height: 40px;
+  max-height: 160px;
+}
+
+.chat-composer__actions {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  padding-bottom: 4px;
+}
+
 .chat-input {
   border-top: 1px solid var(--color-border-subtle);
   background: var(--color-bg-surface);
@@ -954,6 +977,12 @@ a:hover {
 .chat-input__actions {
   display: flex;
   gap: var(--space-2);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 /* ==========================================================================

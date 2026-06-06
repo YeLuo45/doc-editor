@@ -298,15 +298,17 @@ export default function App() {
             </div>
           )}
 
-          <ChatStream
-            messages={messages}
-            input={input}
-            onInputChange={setInput}
-            onSend={handleSend}
-            onClear={clearMessages}
-            onKeyDown={handleKeyDown}
-          />
+          <ChatStream messages={messages} />
         </div>
+
+        {/* Sticky chat composer */}
+        <ChatComposer
+          input={input}
+          onInputChange={setInput}
+          onSend={handleSend}
+          onClear={clearMessages}
+          onKeyDown={handleKeyDown}
+        />
       </main>
 
       {/* ===================== Inspector ===================== */}
@@ -437,11 +439,6 @@ function RuntimeRow({
 
 function ChatStream({
   messages,
-  input,
-  onInputChange,
-  onSend,
-  onClear,
-  onKeyDown,
 }: {
   messages: Array<{
     id: string;
@@ -449,6 +446,147 @@ function ChatStream({
     content: string;
     timestamp: number;
   }>;
+}) {
+  return (
+    <>
+      {messages.length === 0 ? (
+        <div className="welcome">
+          <div className="welcome__eyebrow">
+            <span className="pill__dot" /> Workspace
+          </div>
+          <h1 className="welcome__title">
+            A multi-agent authoring surface that thinks alongside you.
+          </h1>
+          <p className="welcome__subtitle">
+            Cross-session Dream memory, layered context compaction, agent
+            canvas, and an evolving writing coach. Start a thread to wake the
+            system.
+          </p>
+          <div className="welcome__meta">
+            <span>145 modules wired</span>
+            <span>·</span>
+            <span>React 19 + Vite 8</span>
+            <span>·</span>
+            <span>Zustand</span>
+          </div>
+
+          <div
+            style={{
+              marginTop: 'var(--space-6)',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gap: 'var(--space-3)',
+            }}
+          >
+            <QuickAction
+              title="Open Canvas"
+              desc="Sketch agent + phase nodes visually"
+              onClick={() => {/* navigation handled by sidebar */}}
+            />
+            <QuickAction
+              title="View Dream Memory"
+              desc="Inspect phases, archives, L3 skills"
+              onClick={() => {/* navigation handled by sidebar */}}
+            />
+            <QuickAction
+              title="Launch Writing Coach"
+              desc="Analyze style, suggest rewrites"
+              onClick={() => {/* navigation handled by sidebar */}}
+            />
+            <QuickAction
+              title="Toggle Feature Flags"
+              desc="Configure experimental subsystems"
+              onClick={() => {/* navigation handled by sidebar */}}
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="chat-stream">
+          {messages.map((msg) => (
+            <div
+              key={msg.id}
+              className={'message message--' + msg.role}
+            >
+              <div className="message__avatar" aria-hidden>
+                {msg.role === 'user' ? 'U' : 'dE'}
+              </div>
+              <div className="message__bubble">
+                <div className="message__meta">
+                  <span className="message__role">
+                    {msg.role === 'user' ? 'You' : 'Assistant'}
+                  </span>
+                  <span>·</span>
+                  <span>
+                    {new Date(msg.timestamp).toLocaleTimeString()}
+                  </span>
+                </div>
+                <div className="message__content">{msg.content}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+function QuickAction({
+  title,
+  desc,
+  onClick,
+}: {
+  title: string;
+  desc: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="card"
+      style={{
+        textAlign: 'left',
+        cursor: 'pointer',
+        transition: 'border-color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out)',
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.borderColor =
+          'var(--color-accent-cyan)';
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.borderColor =
+          'var(--color-border-subtle)';
+      }}
+    >
+      <div
+        style={{
+          fontSize: 'var(--text-md)',
+          fontWeight: 'var(--weight-semibold)',
+          color: 'var(--color-text-primary)',
+          marginBottom: 4,
+        }}
+      >
+        {title}
+      </div>
+      <div
+        style={{
+          fontSize: 'var(--text-sm)',
+          color: 'var(--color-text-tertiary)',
+        }}
+      >
+        {desc}
+      </div>
+    </button>
+  );
+}
+
+function ChatComposer({
+  input,
+  onInputChange,
+  onSend,
+  onClear,
+  onKeyDown,
+}: {
   input: string;
   onInputChange: (v: string) => void;
   onSend: () => void;
@@ -456,98 +594,30 @@ function ChatStream({
   onKeyDown: (e: React.KeyboardEvent) => void;
 }) {
   return (
-    <>
-      <div className="welcome">
-        <div className="welcome__eyebrow">
-          <span className="pill__dot" /> Workspace
-        </div>
-        <h1 className="welcome__title">
-          A multi-agent authoring surface that thinks alongside you.
-        </h1>
-        <p className="welcome__subtitle">
-          Cross-session Dream memory, layered context compaction, agent canvas,
-          and an evolving writing coach. Start a thread to wake the system.
-        </p>
-        <div className="welcome__meta">
-          <span>145 modules wired</span>
-          <span>·</span>
-          <span>React 19 + Vite 8</span>
-          <span>·</span>
-          <span>Zustand</span>
-        </div>
-      </div>
-
-      <div
-        className="card"
-        style={{ minHeight: 320, padding: 'var(--space-5)' }}
-      >
-        {messages.length === 0 ? (
-          <div className="chat-empty">
-            <div style={{ fontSize: 32 }}>✎</div>
-            <div className="chat-empty__title">No messages yet</div>
-            <div className="chat-empty__hint">
-              Type a prompt below. The editor will route it through Dream memory,
-              then compose a response from the active feature set.
-            </div>
-          </div>
-        ) : (
-          <div className="chat-stream">
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={'message message--' + msg.role}
-              >
-                <div className="message__avatar" aria-hidden>
-                  {msg.role === 'user' ? 'U' : 'dE'}
-                </div>
-                <div className="message__bubble">
-                  <div className="message__meta">
-                    <span className="message__role">
-                      {msg.role === 'user' ? 'You' : 'Assistant'}
-                    </span>
-                    <span>·</span>
-                    <span>
-                      {new Date(msg.timestamp).toLocaleTimeString()}
-                    </span>
-                  </div>
-                  <div className="message__content">{msg.content}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div
-        style={{
-          marginTop: 'var(--space-4)',
-          display: 'flex',
-          gap: 'var(--space-3)',
-          alignItems: 'flex-end',
-        }}
-      >
+    <div className="chat-composer">
+      <div className="chat-composer__inner">
         <textarea
           className="chat-input__textarea"
           value={input}
           onChange={(e) => onInputChange(e.target.value)}
           onKeyDown={onKeyDown}
           placeholder="Type a message, press Enter to send, Shift+Enter for newline"
-          rows={2}
-          style={{ flex: 1 }}
+          rows={1}
         />
-        <div className="chat-input__actions">
-          <button type="button" className="btn btn--primary" onClick={onSend}>
-            Send
+        <div className="chat-composer__actions">
+          <button type="button" className="btn btn--ghost btn--sm" onClick={onClear}>
+            Clear
           </button>
           <button
             type="button"
-            className="btn btn--secondary"
-            onClick={onClear}
+            className="btn btn--primary btn--sm"
+            onClick={onSend}
+            disabled={!input.trim()}
           >
-            Clear
+            Send
           </button>
         </div>
       </div>
-    </>
+    </div>
   );
 }

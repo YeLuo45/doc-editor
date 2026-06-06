@@ -195,151 +195,166 @@ export const AgentCanvas: React.FC<AgentCanvasProps> = ({
   }
 
   return (
-    <div
-      ref={containerRef}
-      onClick={handleCanvasClick}
-      onWheel={handleWheel}
-      onMouseDown={handlePanStart}
-      onMouseMove={handlePanMove}
-      onMouseUp={handlePanEnd}
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: '#0a0a0f',
-        overflow: 'hidden',
-        cursor: isPanning ? 'grabbing' : 'default',
-      }}
-    >
+    <div className="canvas-mode">
       {/* Toolbar */}
-      <div style={{
-        position: 'absolute',
-        top: 16,
-        left: 16,
-        right: 16,
-        display: 'flex',
-        gap: 8,
-        zIndex: 100,
-        background: '#12121a',
-        padding: 12,
-        borderRadius: 8,
-        border: '1px solid #333',
-      }}>
-        <button onClick={() => handleAddNode('agent', 'editor')} style={btnStyle}>+ Editor</button>
-        <button onClick={() => handleAddNode('agent', 'reviewer')} style={btnStyle}>+ Reviewer</button>
-        <button onClick={() => handleAddNode('agent', 'researcher')} style={btnStyle}>+ Researcher</button>
-        <div style={{ width: 1, background: '#333', margin: '0 8px' }} />
-        <button onClick={() => handleAddNode('phase', undefined, 'design')} style={btnStyle}>+ Design</button>
-        <button onClick={() => handleAddNode('phase', undefined, 'edit')} style={btnStyle}>+ Edit</button>
-        <button onClick={() => handleAddNode('phase', undefined, 'review')} style={btnStyle}>+ Review</button>
-        <button onClick={() => handleAddNode('phase', undefined, 'publish')} style={btnStyle}>+ Publish</button>
-        <div style={{ width: 1, background: '#333', margin: '0 8px' }} />
-        <button onClick={handleSave} style={btnStyle}>💾 Save</button>
-        <button onClick={handleLoad} style={btnStyle}>📂 Load</button>
-        <button onClick={handleClear} style={{ ...btnStyle, color: '#ef4444' }}>🗑️ Clear</button>
-        <div style={{ flex: 1 }} />
-        <button onClick={() => onModeSwitch?.('edit')} style={{ ...btnStyle, background: '#f97316' }}>Switch to Edit</button>
+      <div className="canvas-toolbar">
+        <div className="canvas-toolbar__group">
+          <span className="card__subtitle" style={{ marginRight: 'var(--space-2)' }}>Agent</span>
+          <button onClick={() => handleAddNode('agent', 'editor')} className="btn btn--secondary btn--sm">+ Editor</button>
+          <button onClick={() => handleAddNode('agent', 'reviewer')} className="btn btn--secondary btn--sm">+ Reviewer</button>
+          <button onClick={() => handleAddNode('agent', 'researcher')} className="btn btn--secondary btn--sm">+ Researcher</button>
+        </div>
+        <div className="canvas-toolbar__group">
+          <span className="card__subtitle" style={{ marginRight: 'var(--space-2)' }}>Phase</span>
+          <button onClick={() => handleAddNode('phase', undefined, 'design')} className="btn btn--secondary btn--sm">+ Design</button>
+          <button onClick={() => handleAddNode('phase', undefined, 'edit')} className="btn btn--secondary btn--sm">+ Edit</button>
+          <button onClick={() => handleAddNode('phase', undefined, 'review')} className="btn btn--secondary btn--sm">+ Review</button>
+          <button onClick={() => handleAddNode('phase', undefined, 'publish')} className="btn btn--secondary btn--sm">+ Publish</button>
+        </div>
+        <div className="canvas-toolbar__group">
+          <button onClick={handleSave} className="btn btn--ghost btn--sm">Save</button>
+          <button onClick={handleLoad} className="btn btn--ghost btn--sm">Load</button>
+          <button onClick={handleClear} className="btn btn--danger btn--sm">Clear</button>
+        </div>
+        <div className="canvas-toolbar__spacer" />
+        <span className="card__subtitle" style={{ fontFamily: 'var(--font-family-mono)' }}>
+          {nodes.length} nodes · {connections.length} edges
+        </span>
+        <button
+          onClick={() => onModeSwitch?.('edit')}
+          className="btn btn--primary btn--sm"
+        >
+          Switch to Edit
+        </button>
       </div>
 
       {/* Canvas content */}
-      <div style={{
-        transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
-        transformOrigin: '0 0',
-        position: 'absolute',
-        top: 80,
-        left: 16,
-        width: 4000,
-        height: 3000,
-      }}>
-        {/* Connection lines */}
-        <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
-          {connections.map(conn => {
-            const fromNode = nodes.find(n => n.id === conn.fromId);
-            const toNode = nodes.find(n => n.id === conn.toId);
-            if (!fromNode || !toNode) return null;
+      <div className="canvas-stage" onClick={handleCanvasClick}>
+        <div
+          onWheel={handleWheel}
+          onMouseDown={handlePanStart}
+          onMouseMove={handlePanMove}
+          onMouseUp={handlePanEnd}
+          style={{
+            transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
+            transformOrigin: '0 0',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: 4000,
+            height: 3000,
+            cursor: isPanning ? 'grabbing' : 'default',
+          }}
+        >
+          {/* Connection lines */}
+          <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+            {connections.map(conn => {
+              const fromNode = nodes.find(n => n.id === conn.fromId);
+              const toNode = nodes.find(n => n.id === conn.toId);
+              if (!fromNode || !toNode) return null;
 
-            const fromX = fromNode.x + (conn.type === 'agent' ? 80 : 90);
-            const fromY = fromNode.y + (conn.type === 'agent' ? 60 : 80);
-            const toX = toNode.x + (conn.type === 'agent' ? 80 : 90);
-            const toY = toNode.y + (conn.type === 'agent' ? 60 : 80);
+              const fromX = fromNode.x + (conn.type === 'agent' ? 80 : 90);
+              const fromY = fromNode.y + (conn.type === 'agent' ? 60 : 80);
+              const toX = toNode.x + (conn.type === 'agent' ? 80 : 90);
+              const toY = toNode.y + (conn.type === 'agent' ? 60 : 80);
 
-            return (
-              <g key={conn.id}>
-                <line
-                  x1={fromX}
-                  y1={fromY}
-                  x2={toX}
-                  y2={toY}
-                  stroke={conn.type === 'agent' ? '#06b6d4' : '#f97316'}
-                  strokeWidth={2}
-                  strokeDasharray="5,5"
-                  opacity={0.6}
+              return (
+                <g key={conn.id}>
+                  <line
+                    x1={fromX}
+                    y1={fromY}
+                    x2={toX}
+                    y2={toY}
+                    stroke={conn.type === 'agent' ? '#06b6d4' : '#f97316'}
+                    strokeWidth={2}
+                    strokeDasharray="5,5"
+                    opacity={0.6}
+                  />
+                  <circle cx={toX} cy={toY} r={6} fill={conn.type === 'agent' ? '#06b6d4' : '#f97316'} />
+                </g>
+              );
+            })}
+          </svg>
+
+          {/* Nodes */}
+          {nodes.map(node => {
+            if ('status' in node) {
+              return (
+                <AgentNode
+                  key={node.id}
+                  data={node as AgentNodeData}
+                  onDrag={handleNodeDrag}
+                  onStart={handleAgentStart}
+                  onStop={handleAgentStop}
+                  selected={selectedId === node.id}
                 />
-                <circle cx={toX} cy={toY} r={6} fill={conn.type === 'agent' ? '#06b6d4' : '#f97316'} />
-              </g>
-            );
+              );
+            } else {
+              return (
+                <PhaseGate
+                  key={node.id}
+                  data={node as PhaseGateData}
+                  onEnter={handlePhaseEnter}
+                  onExit={handlePhaseExit}
+                  onGuardToggle={handlePhaseGuardToggle}
+                  onModeTransition={handlePhaseModeTransition}
+                  selected={selectedId === node.id}
+                />
+              );
+            }
           })}
-        </svg>
+        </div>
 
-        {/* Nodes */}
-        {nodes.map(node => {
-          if ('status' in node) {
-            return (
-              <AgentNode
-                key={node.id}
-                data={node as AgentNodeData}
-                onDrag={handleNodeDrag}
-                onStart={handleAgentStart}
-                onStop={handleAgentStop}
-                selected={selectedId === node.id}
-              />
-            );
-          } else {
-            return (
-              <PhaseGate
-                key={node.id}
-                data={node as PhaseGateData}
-                onEnter={handlePhaseEnter}
-                onExit={handlePhaseExit}
-                onGuardToggle={handlePhaseGuardToggle}
-                onModeTransition={handlePhaseModeTransition}
-                selected={selectedId === node.id}
-              />
-            );
-          }
-        })}
-      </div>
+        {/* Empty state hint */}
+        {nodes.length === 0 && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              textAlign: 'center',
+              color: 'var(--color-text-tertiary)',
+              pointerEvents: 'none',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 'var(--space-3)',
+            }}
+          >
+            <div style={{ fontSize: 48, opacity: 0.4 }}>◫</div>
+            <div style={{ fontSize: 'var(--text-md)', fontWeight: 'var(--weight-semibold)', color: 'var(--color-text-secondary)' }}>
+              Canvas is empty
+            </div>
+            <div style={{ fontSize: 'var(--text-sm)', maxWidth: 320 }}>
+              Add an Agent or Phase from the toolbar above, then drag to connect.
+            </div>
+          </div>
+        )}
 
-      {/* Zoom indicator */}
-      <div style={{
-        position: 'absolute',
-        bottom: 16,
-        right: 16,
-        padding: '8px 16px',
-        background: '#12121a',
-        border: '1px solid #333',
-        borderRadius: 6,
-        color: '#a0a0b0',
-        fontSize: 12,
-      }}>
-        Zoom: {Math.round(scale * 100)}% | Pan: Alt+Drag | Zoom: Ctrl+Scroll
-      </div>
+        {/* Zoom indicator */}
+        <div className="canvas-hud canvas-hud--right">
+          <span><span className="canvas-hud__key">Zoom</span> {Math.round(scale * 100)}%</span>
+          <span style={{ color: 'var(--color-text-tertiary)' }}>·</span>
+          <span><span className="canvas-hud__key">Pan</span> Alt+Drag</span>
+          <span style={{ color: 'var(--color-text-tertiary)' }}>·</span>
+          <span><span className="canvas-hud__key">Scale</span> Ctrl+Scroll</span>
+        </div>
 
-      {/* Mode indicator */}
-      <div style={{
-        position: 'absolute',
-        bottom: 16,
-        left: 16,
-        padding: '8px 16px',
-        background: '#f97316',
-        borderRadius: 6,
-        color: '#fff',
-        fontSize: 12,
-        fontWeight: 600,
-      }}>
-        Canvas Mode
+        {/* Mode indicator */}
+        <div
+          className="pill pill--orange"
+          style={{
+            position: 'absolute',
+            bottom: 'var(--space-4)',
+            left: 'var(--space-4)',
+            padding: 'var(--space-2) var(--space-3)',
+            pointerEvents: 'none',
+          }}
+        >
+          <span className="pill__dot" />
+          Canvas Mode
+        </div>
       </div>
     </div>
   );
