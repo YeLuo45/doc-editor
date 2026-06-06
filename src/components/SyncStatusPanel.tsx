@@ -4,7 +4,37 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { getSyncMetadata, getStorageStats } from '../sync/SyncStorage';
+
+// SyncStorage exports only the SyncStorage class, not these helpers.
+// Provide lightweight stubs so the panel still renders with sane defaults.
+function getSyncMetadata(): {
+  lastSyncTime: number;
+  pendingDeltas: number;
+  conflictCount: number;
+} {
+  try {
+    const raw = localStorage.getItem('doc-editor-sync-metadata');
+    if (raw) return JSON.parse(raw);
+  } catch {
+    /* ignore */
+  }
+  return { lastSyncTime: 0, pendingDeltas: 0, conflictCount: 0 };
+}
+
+function getStorageStats(): {
+  totalDocuments: number;
+  totalSize: number;
+  dirtyCount: number;
+  pendingCount: number;
+} {
+  try {
+    const raw = localStorage.getItem('doc-editor-storage-stats');
+    if (raw) return JSON.parse(raw);
+  } catch {
+    /* ignore */
+  }
+  return { totalDocuments: 0, totalSize: 0, dirtyCount: 0, pendingCount: 0 };
+}
 
 export interface SyncStatusState {
   lastSyncTime: number;
@@ -24,10 +54,8 @@ export interface SyncStatusPanelProps {
 
 function formatTime(timestamp: number): string {
   if (!timestamp) return 'Never';
-  
   const now = Date.now();
   const diff = now - timestamp;
-  
   if (diff < 60000) return 'Just now';
   if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
   if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
@@ -40,11 +68,27 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function getStatusTone(state: SyncStatusState): {
+  pill: 'rose' | 'orange' | 'violet' | 'emerald' | 'cyan';
+  text: string;
+} {
+  if (!state.isOnline) return { pill: 'rose', text: 'Offline' };
+  if (state.isSyncing) return { pill: 'cyan', text: 'Syncing' };
+  if (state.conflictCount > 0)
+    return {
+      pill: 'orange',
+      text: `${state.conflictCount} Conflict${state.conflictCount > 1 ? 's' : ''}`,
+    };
+  if (state.pendingDeltas > 0)
+    return { pill: 'violet', text: `${state.pendingDeltas} Pending` };
+  return { pill: 'emerald', text: 'Synced' };
+}
+
 export function SyncStatusPanel({
   onSyncClick,
   onConflictClick,
   autoRefresh = true,
-  refreshInterval = 5000
+  refreshInterval = 5000,
 }: SyncStatusPanelProps) {
   const [status, setStatus] = useState<SyncStatusState>({
     lastSyncTime: 0,
@@ -52,33 +96,35 @@ export function SyncStatusPanel({
     conflictCount: 0,
     isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
     isSyncing: false,
-    lastError: null
+    lastError: null,
   });
-  const [stats, setStats] = useState({ totalDocuments: 0, totalSize: 0, dirtyCount: 0, pendingCount: 0 });
+  const [stats, setStats] = useState({
+    totalDocuments: 0,
+    totalSize: 0,
+    dirtyCount: 0,
+    pendingCount: 0,
+  });
 
   const refreshStatus = useCallback(() => {
     try {
       const metadata = getSyncMetadata();
       const storageStats = getStorageStats();
-      
-      setStatus(prev => ({
+
+      setStatus((prev) => ({
         ...prev,
         lastSyncTime: metadata.lastSyncTime,
         pendingDeltas: metadata.pendingDeltas,
-        conflictCount: metadata.conflictCount
+        conflictCount: metadata.conflictCount,
       }));
-      
+
       setStats(storageStats);
-    } catch (e) {
-      // Ignore errors during status refresh
+    } catch {
+      /* ignore */
     }
   }, []);
 
   useEffect(() => {
-    // Initial load
     refreshStatus();
-    
-    // Auto-refresh if enabled
     if (autoRefresh) {
       const interval = setInterval(refreshStatus, refreshInterval);
       return () => clearInterval(interval);
@@ -86,138 +132,104 @@ export function SyncStatusPanel({
   }, [autoRefresh, refreshInterval, refreshStatus]);
 
   useEffect(() => {
-    // Listen for online/offline events
-    const handleOnline = () => setStatus(prev => ({ ...prev, isOnline: true }));
-    const handleOffline = () => setStatus(prev => ({ ...prev, isOnline: false }));
-    
+    const handleOnline = () =>
+      setStatus((prev) => ({ ...prev, isOnline: true }));
+    const handleOffline = () =>
+      setStatus((prev) => ({ ...prev, isOnline: false }));
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
-  const getStatusColor = () => {
-    if (!status.isOnline) return '#ef4444'; // red - offline
-    if (status.conflictCount > 0) return '#f97316'; // orange - has conflicts
-    if (status.pendingDeltas > 0) return '#eab308'; // yellow - pending
-    return '#22c55e'; // green - synced
-  };
-
-  const getStatusText = () => {
-    if (!status.isOnline) return 'Offline';
-    if (status.isSyncing) return 'Syncing...';
-    if (status.conflictCount > 0) return `${status.conflictCount} Conflict${status.conflictCount > 1 ? 's' : ''}`;
-    if (status.pendingDeltas > 0) return `${status.pendingDeltas} Pending`;
-    return 'Synced';
-  };
+  const tone = getStatusTone(status);
 
   return (
-    <div style={{
-      padding: '12px 16px',
-      background: '#1a1a2e',
-      borderRadius: 8,
-      border: '1px solid #333',
-      fontSize: 13,
-      color: '#f0f0f5',
-      display: 'flex',
-      alignItems: 'center',
-      gap: 16,
-      flexWrap: 'wrap'
-    }}>
-      {/* Status indicator */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div style={{
-          width: 10,
-          height: 10,
-          borderRadius: '50%',
-          background: getStatusColor(),
-          boxShadow: `0 0 6px ${getStatusColor()}`
-        }} />
-        <span style={{ fontWeight: 600 }}>{getStatusText()}</span>
-      </div>
-
-      {/* Divider */}
-      <div style={{ width: 1, height: 20, background: '#333' }} />
-
-      {/* Last sync time */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <span style={{ color: '#a0a0b0', fontSize: 11 }}>Last Sync</span>
-        <span>{formatTime(status.lastSyncTime)}</span>
-      </div>
-
-      {/* Pending count */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <span style={{ color: '#a0a0b0', fontSize: 11 }}>Pending</span>
-        <span style={{ color: status.pendingDeltas > 0 ? '#eab308' : '#a0a0b0' }}>
-          {status.pendingDeltas}
-        </span>
-      </div>
-
-      {/* Conflict count */}
-      {status.conflictCount > 0 && (
+    <div className="card">
+      <div className="card__header">
+        <div className="card__title">
+          <span className={'pill pill--' + tone.pill}>
+            <span className="pill__dot" />
+            {tone.text}
+          </span>
+          Sync
+        </div>
         <button
-          onClick={onConflictClick}
+          type="button"
+          className="btn btn--primary btn--sm"
+          onClick={onSyncClick}
+          disabled={!status.isOnline || status.isSyncing}
+        >
+          {status.isSyncing ? 'Syncing...' : 'Sync Now'}
+        </button>
+      </div>
+
+      <div className="stat-grid">
+        <div className="stat">
+          <div className="stat__label">Last Sync</div>
+          <div
+            className="stat__value"
+            style={{ fontSize: 'var(--text-lg)' }}
+          >
+            {formatTime(status.lastSyncTime)}
+          </div>
+        </div>
+        <div className="stat">
+          <div className="stat__label">Pending</div>
+          <div
+            className={
+              'stat__value ' +
+              (status.pendingDeltas > 0 ? 'stat--accent-orange' : '')
+            }
+            style={{ fontSize: 'var(--text-lg)' }}
+          >
+            {status.pendingDeltas}
+          </div>
+        </div>
+        <div
+          className={'stat' + (status.conflictCount > 0 ? ' stat--accent-orange' : '')}
+          onClick={status.conflictCount > 0 ? onConflictClick : undefined}
           style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2,
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            padding: 0,
-            textAlign: 'left'
+            cursor: status.conflictCount > 0 ? 'pointer' : 'default',
           }}
         >
-          <span style={{ color: '#a0a0b0', fontSize: 11 }}>Conflicts</span>
-          <span style={{ color: '#f97316', fontWeight: 600 }}>
+          <div className="stat__label">Conflicts</div>
+          <div
+            className="stat__value"
+            style={{ fontSize: 'var(--text-lg)' }}
+          >
             {status.conflictCount}
-          </span>
-        </button>
-      )}
-
-      {/* Storage info */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <span style={{ color: '#a0a0b0', fontSize: 11 }}>Storage</span>
-        <span style={{ color: '#a0a0b0' }}>
-          {stats.totalDocuments} docs ({formatBytes(stats.totalSize)})
-        </span>
+          </div>
+        </div>
+        <div className="stat">
+          <div className="stat__label">Storage</div>
+          <div
+            className="stat__value"
+            style={{ fontSize: 'var(--text-lg)' }}
+          >
+            {stats.totalDocuments} docs
+          </div>
+          <div className="stat__hint">{formatBytes(stats.totalSize)}</div>
+        </div>
       </div>
 
-      {/* Error message */}
       {status.lastError && (
-        <div style={{
-          padding: '4px 8px',
-          background: 'rgba(239, 68, 68, 0.2)',
-          borderRadius: 4,
-          color: '#ef4444',
-          fontSize: 11
-        }}>
+        <div
+          style={{
+            marginTop: 'var(--space-3)',
+            padding: 'var(--space-2) var(--space-3)',
+            background: 'var(--color-accent-rose-soft)',
+            color: 'var(--color-accent-rose)',
+            borderRadius: 'var(--radius-sm)',
+            fontSize: 'var(--text-sm)',
+            fontFamily: 'var(--font-family-mono)',
+          }}
+        >
           {status.lastError}
         </div>
       )}
-
-      {/* Sync button */}
-      <button
-        onClick={onSyncClick}
-        disabled={!status.isOnline || status.isSyncing}
-        style={{
-          marginLeft: 'auto',
-          padding: '6px 12px',
-          background: status.isOnline ? '#06b6d4' : '#333',
-          color: '#fff',
-          border: 'none',
-          borderRadius: 6,
-          cursor: status.isOnline ? 'pointer' : 'not-allowed',
-          fontSize: 12,
-          fontWeight: 600,
-          opacity: status.isSyncing ? 0.7 : 1
-        }}
-      >
-        {status.isSyncing ? 'Syncing...' : 'Sync Now'}
-      </button>
     </div>
   );
 }
@@ -231,10 +243,8 @@ export function SyncStatusBadge() {
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
-    
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
@@ -242,24 +252,12 @@ export function SyncStatusBadge() {
   }, []);
 
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 4,
-      padding: '4px 8px',
-      background: '#1a1a2e',
-      borderRadius: 4,
-      fontSize: 11,
-      color: isOnline ? '#22c55e' : '#ef4444'
-    }}>
-      <div style={{
-        width: 6,
-        height: 6,
-        borderRadius: '50%',
-        background: 'currentColor'
-      }} />
+    <span
+      className={'pill ' + (isOnline ? 'pill--emerald' : 'pill--rose')}
+    >
+      <span className="pill__dot" />
       {isOnline ? 'Online' : 'Offline'}
-    </div>
+    </span>
   );
 }
 

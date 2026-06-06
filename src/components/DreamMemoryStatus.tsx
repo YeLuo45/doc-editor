@@ -2,7 +2,8 @@ import { useEffect } from 'react';
 import { useDreamStore } from '../utils/dreamMemory';
 
 export function DreamMemoryStatus() {
-  const { phase, messageCount, tokenCount, dreamCount, updateStats } = useDreamStore();
+  const { phase, messageCount, tokenCount, dreamCount, updateStats } =
+    useDreamStore();
 
   useEffect(() => {
     updateStats();
@@ -10,19 +11,52 @@ export function DreamMemoryStatus() {
     return () => clearInterval(interval);
   }, [updateStats]);
 
+  const isDream = phase === 'dream';
+
   return (
-    <div style={{ padding: '8px 12px', border: '1px solid #333', borderRadius: 6, background: '#0a0a0f', color: '#f0f0f5', fontSize: 13 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 18 }}>{phase === 'dream' ? '💤' : '☀️'}</span>
-          <span style={{ fontWeight: 600, color: phase === 'dream' ? '#f97316' : '#06b6d4' }}>
-            {phase === 'dream' ? '正在记忆(Dream)' : '活跃(Wake)'}
-          </span>
-        </div>
-        <div style={{ color: '#a0a0b0', fontSize: 12 }}>
-          消息: {messageCount} | Token: ~{tokenCount} | Dream次数: {dreamCount}
-        </div>
+    <div
+      className="card"
+      style={{
+        marginTop: 'var(--space-4)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 'var(--space-4)',
+        flexWrap: 'wrap',
+      }}
+    >
+      <span className={'pill ' + (isDream ? 'pill--orange' : 'pill--cyan')}>
+        <span className="pill__dot" />
+        {isDream ? 'Dream' : 'Wake'}
+      </span>
+      <div
+        style={{
+          display: 'flex',
+          gap: 'var(--space-4)',
+          fontSize: 'var(--text-sm)',
+          color: 'var(--color-text-secondary)',
+          fontFamily: 'var(--font-family-mono)',
+        }}
+      >
+        <Stat label="messages" value={String(messageCount)} />
+        <Stat label="tokens ~" value={String(tokenCount)} />
+        <Stat label="dreams" value={String(dreamCount)} />
       </div>
     </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <span style={{ display: 'inline-flex', gap: 6, alignItems: 'baseline' }}>
+      <span style={{ color: 'var(--color-text-tertiary)' }}>{label}</span>
+      <span
+        style={{
+          color: 'var(--color-text-primary)',
+          fontWeight: 'var(--weight-semibold)',
+        }}
+      >
+        {value}
+      </span>
+    </span>
   );
 }
