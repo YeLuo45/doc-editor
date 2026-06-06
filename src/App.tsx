@@ -48,7 +48,7 @@ function AppShell() {
   const { messages, input, addMessage, setInput, clearMessages } = useEditorStore();
   const { updateStats, phase } = useDreamStore();
   const { flags } = useFlagsStore();
-  const t = useTranslation();
+  const { t } = useTranslation();
   const [section, setSection] = useState<SectionId>('editor');
   const [showDashboard, setShowDashboard] = useState(false);
   const [showSyncStatus, setShowSyncStatus] = useState(false);
@@ -481,7 +481,7 @@ function ChatStream({
     timestamp: number;
   }>;
 }) {
-  const t = useTranslation();
+  const { t } = useTranslation();
   return (
     <>
       {messages.length === 0 ? (
@@ -626,7 +626,7 @@ function ChatComposer({
   onClear: () => void;
   onKeyDown: (e: React.KeyboardEvent) => void;
 }) {
-  const t = useTranslation();
+  const { t } = useTranslation();
   return (
     <div className="chat-composer">
       <div className="chat-composer__inner">

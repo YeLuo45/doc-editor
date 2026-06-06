@@ -16,7 +16,7 @@ const APP_VERSION = 'v145';
 const MODULE_COUNT = 145;
 
 export function SettingsPanel() {
-  const t = useTranslation();
+  const { t } = useTranslation();
   const [tab, setTab] = useState<string>('general');
 
   return (
