@@ -5,6 +5,14 @@ on:
     branches: [master, feature/v145-convolver, master-v153-deploy]
   workflow_dispatch:
 
+permissions:
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -16,9 +24,7 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: node ./node_modules/.bin/vite build
-      - name: Deploy
-        uses: peaceiris/actions-gh-pages@v3
+      - uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
-          publish_branch: gh-pages
+          path: ./dist
+      - uses: actions/deploy-pages@v4
