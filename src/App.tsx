@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { I18nProvider, useTranslation } from './i18n';
 import { useEditorStore } from './stores';
 import { useDreamStore, dreamMemory } from './utils/dreamMemory';
 import { useFlagsStore } from './utils/featureFlags';
@@ -9,29 +10,45 @@ import { DreamDashboard } from './components/DreamDashboard';
 import { SyncStatusPanel } from './components/SyncStatusPanel';
 import { AgentCanvas, type CanvasMode } from './canvas/AgentCanvas.tsx';
 import { WritingCoachPanel } from './components/WritingCoachPanel';
+import { SettingsPanel } from './components/SettingsPanel';
+import { LanguageSwitcher } from './components/LanguageSwitcher';
 import { useBudgetStore } from './stores/budgetStore';
 
 type SectionId = 'editor' | 'dream' | 'canvas' | 'tools' | 'settings';
 
 interface NavItem {
   id: SectionId;
-  label: string;
   icon: string;
   badge?: string;
+  labelKey:
+    | 'sidebar.nav.editor'
+    | 'sidebar.nav.dreamMemory'
+    | 'sidebar.nav.agentCanvas'
+    | 'sidebar.nav.writingCoach'
+    | 'sidebar.nav.settings';
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'editor', label: 'Editor', icon: '✎' },
-  { id: 'dream', label: 'Dream Memory', icon: '☾', badge: 'DM' },
-  { id: 'canvas', label: 'Agent Canvas', icon: '◫', badge: 'CV' },
-  { id: 'tools', label: 'Writing Coach', icon: '✦' },
-  { id: 'settings', label: 'Settings', icon: '⚙' },
+  { id: 'editor',   icon: '✎', labelKey: 'sidebar.nav.editor' },
+  { id: 'dream',    icon: '☾', badge: 'DM', labelKey: 'sidebar.nav.dreamMemory' },
+  { id: 'canvas',   icon: '◫', badge: 'CV', labelKey: 'sidebar.nav.agentCanvas' },
+  { id: 'tools',    icon: '✦', labelKey: 'sidebar.nav.writingCoach' },
+  { id: 'settings', icon: '⚙', labelKey: 'sidebar.nav.settings' },
 ];
 
 export default function App() {
+  return (
+    <I18nProvider>
+      <AppShell />
+    </I18nProvider>
+  );
+}
+
+function AppShell() {
   const { messages, input, addMessage, setInput, clearMessages } = useEditorStore();
   const { updateStats, phase } = useDreamStore();
   const { flags } = useFlagsStore();
+  const t = useTranslation();
   const [section, setSection] = useState<SectionId>('editor');
   const [showDashboard, setShowDashboard] = useState(false);
   const [showSyncStatus, setShowSyncStatus] = useState(false);
@@ -103,13 +120,15 @@ export default function App() {
     setCanvasMode('canvas');
   };
 
-  const currentTitle: Record<SectionId, { eyebrow: string; main: string }> = {
-    editor: { eyebrow: 'Workspace', main: 'Editor' },
-    dream: { eyebrow: 'Memory', main: 'Dream Dashboard' },
-    canvas: { eyebrow: 'Workflow', main: 'Agent Canvas' },
-    tools: { eyebrow: 'Productivity', main: 'Writing Coach' },
-    settings: { eyebrow: 'System', main: 'Settings' },
+  const currentTitle: Record<SectionId, { eyebrowKey: string; titleKey: string }> = {
+    editor:   { eyebrowKey: 'topbar.eyebrow.editor',      titleKey: 'topbar.title.editor' },
+    dream:    { eyebrowKey: 'topbar.eyebrow.memory',      titleKey: 'topbar.title.dreamDashboard' },
+    canvas:   { eyebrowKey: 'topbar.eyebrow.workflow',    titleKey: 'topbar.title.agentCanvas' },
+    tools:    { eyebrowKey: 'topbar.eyebrow.productivity',titleKey: 'topbar.title.writingCoach' },
+    settings: { eyebrowKey: 'topbar.eyebrow.system',      titleKey: 'topbar.title.settings' },
   };
+
+  const isSettingsView = section === 'settings';
 
   return (
     <div
@@ -119,17 +138,17 @@ export default function App() {
       }
     >
       {/* ===================== Sidebar ===================== */}
-      <aside className="sidebar" aria-label="Primary navigation">
+      <aside className="sidebar" aria-label={t('sidebar.section.workspace')}>
         <div className="sidebar__brand">
           <span className="sidebar__brand-mark" aria-hidden>
             dE
           </span>
-          <span className="sidebar__brand-name">doc-editor</span>
+          <span className="sidebar__brand-name">{t('app.brand')}</span>
           <span className="sidebar__brand-version">v145</span>
         </div>
 
         <nav className="sidebar__section" aria-label="Main">
-          <div className="sidebar__section-title">Workspace</div>
+          <div className="sidebar__section-title">{t('sidebar.section.workspace')}</div>
           {NAV_ITEMS.map((item) => {
             const isActive = section === item.id;
             return (
@@ -149,7 +168,7 @@ export default function App() {
                 <span className="sidebar__nav-item-icon" aria-hidden>
                   {item.icon}
                 </span>
-                <span>{item.label}</span>
+                <span>{t(item.labelKey)}</span>
                 {item.badge && (
                   <span className="sidebar__nav-item-badge">{item.badge}</span>
                 )}
@@ -160,8 +179,8 @@ export default function App() {
 
         <div className="sidebar__divider" />
 
-        <div className="sidebar__section" aria-label="Live status">
-          <div className="sidebar__section-title">Live</div>
+        <div className="sidebar__section" aria-label={t('sidebar.section.live')}>
+          <div className="sidebar__section-title">{t('sidebar.section.live')}</div>
           <div className="flag-row" style={{ borderBottom: 'none' }}>
             <div className="flag-row__meta">
               <div className="flag-row__name">
@@ -169,18 +188,16 @@ export default function App() {
                   className={
                     'pill__dot' +
                     ' ' +
-                    (phase === 'dream'
-                      ? 'pill--orange'
-                      : 'pill--cyan')
+                    (phase === 'dream' ? 'pill--orange' : 'pill--cyan')
                   }
                   style={{ width: 8, height: 8 }}
                 />
-                {phase === 'dream' ? 'Dream Phase' : 'Wake Phase'}
+                {phase === 'dream' ? t('sidebar.live.dreamPhase') : t('sidebar.live.wakePhase')}
               </div>
               <div className="flag-row__desc">
                 {flags.DREAM_MEMORY
-                  ? '跨会话记忆已启用'
-                  : '跨会话记忆已关闭'}
+                  ? t('sidebar.live.crossSessionOn')
+                  : t('sidebar.live.crossSessionOff')}
               </div>
             </div>
           </div>
@@ -189,7 +206,7 @@ export default function App() {
         <div className="sidebar__footer">
           <div className="sidebar__footer-status">
             <span className="sidebar__footer-dot" aria-hidden />
-            <span>145 modules · live</span>
+            <span>{t('sidebar.footer.modulesLive', { count: 145 })}</span>
           </div>
         </div>
       </aside>
@@ -198,10 +215,10 @@ export default function App() {
       <header className="topbar">
         <div className="topbar__title">
           <span className="topbar__title-eyebrow">
-            {currentTitle[section].eyebrow}
+            {t(currentTitle[section].eyebrowKey as Parameters<typeof t>[0])}
           </span>
           <span className="topbar__title-main">
-            {currentTitle[section].main}
+            {t(currentTitle[section].titleKey as Parameters<typeof t>[0])}
           </span>
         </div>
 
@@ -214,7 +231,7 @@ export default function App() {
             onClick={() => setShowDashboard((v) => !v)}
             aria-pressed={showDashboard}
           >
-            {showDashboard ? 'Hide Dashboard' : 'Show Dashboard'}
+            {showDashboard ? t('topbar.action.hideDashboard') : t('topbar.action.showDashboard')}
           </button>
           <button
             type="button"
@@ -222,7 +239,7 @@ export default function App() {
             onClick={() => setShowSyncStatus((v) => !v)}
             aria-pressed={showSyncStatus}
           >
-            Sync Status
+            {t('topbar.action.syncStatus')}
           </button>
           <button
             type="button"
@@ -231,84 +248,99 @@ export default function App() {
               setCanvasMode((m: CanvasMode) => (m === 'edit' ? 'canvas' : 'edit'))
             }
           >
-            {canvasMode === 'edit' ? 'Open Canvas' : 'Close Canvas'}
+            {canvasMode === 'edit' ? t('topbar.action.openCanvas') : t('topbar.action.closeCanvas')}
           </button>
           <button
             type="button"
             className={
               'btn btn--sm ' +
-              (isOverBudget || isOverDailyLimit
-                ? 'btn--danger'
-                : 'btn--primary')
+              (isOverBudget || isOverDailyLimit ? 'btn--danger' : 'btn--primary')
             }
             onClick={() => setShowCoach((v) => !v)}
           >
-            Coach
+            {t('topbar.action.coach')}
             {isOverBudget || isOverDailyLimit ? ' ⚠' : ''}
           </button>
+          {/* Inline language switcher for quick switching outside Settings */}
+          <LanguageSwitcher />
         </div>
       </header>
 
       {/* ===================== Main ===================== */}
       <main className="main" aria-label="Main content">
         <div className="main__scroll">
-          {showDashboard && <DreamDashboard />}
+          {isSettingsView ? (
+            <SettingsPanel />
+          ) : (
+            <>
+              {showDashboard && <DreamDashboard />}
 
-          {showSyncStatus && (
-            <div style={{ marginBottom: 'var(--space-5)' }}>
-              <SyncStatusPanel
-                onSyncClick={handleSyncClick}
-                onConflictClick={handleConflictClick}
-              />
-            </div>
-          )}
-
-          {showCoach && <WritingCoachPanel />}
-
-          {flags.DREAM_MEMORY && !showDashboard && <DreamMemoryStatus />}
-
-          {flags.LAYERED_MEMORY && !showDashboard && (
-            <div className="card" style={{ marginTop: 'var(--space-4)' }}>
-              <div className="card__header">
-                <div className="card__title">
-                  <span
-                    className="pill pill--orange"
-                    style={{ padding: '2px 8px' }}
-                  >
-                    L0
-                  </span>
-                  Meta Rules
+              {showSyncStatus && (
+                <div style={{ marginBottom: 'var(--space-5)' }}>
+                  <SyncStatusPanel
+                    onSyncClick={handleSyncClick}
+                    onConflictClick={handleConflictClick}
+                  />
                 </div>
-                <div className="card__subtitle">编辑器约束</div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {L0_META_RULES.map((rule, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      fontSize: 'var(--text-sm)',
-                      color: 'var(--color-text-secondary)',
-                      padding: '4px 0',
-                    }}
-                  >
-                    · {rule}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+              )}
 
-          <ChatStream messages={messages} />
+              {showCoach && <WritingCoachPanel />}
+
+              {flags.DREAM_MEMORY && !showDashboard && <DreamMemoryStatus />}
+
+              {flags.LAYERED_MEMORY && !showDashboard && (
+                <div className="card" style={{ marginTop: 'var(--space-4)' }}>
+                  <div className="card__header">
+                    <div className="card__title">
+                      <span
+                        className="pill pill--orange"
+                        style={{ padding: '2px 8px' }}
+                      >
+                        L0
+                      </span>
+                      {t('metaRules.title')}
+                    </div>
+                    <div className="card__subtitle">{t('metaRules.subtitle')}</div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {L0_META_RULES.map((_rule, i) => {
+                      const key = `metaRules.rule.${
+                        i === 0 ? 'editorStructure' :
+                        i === 1 ? 'completeCriteria' :
+                        i === 2 ? 'loadFromStorage' :
+                        'editorStructure'
+                      }` as Parameters<typeof t>[0];
+                      return (
+                        <div
+                          key={i}
+                          style={{
+                            fontSize: 'var(--text-sm)',
+                            color: 'var(--color-text-secondary)',
+                            padding: '4px 0',
+                          }}
+                        >
+                          · {t(key)}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <ChatStream messages={messages} />
+            </>
+          )}
         </div>
 
-        {/* Sticky chat composer */}
-        <ChatComposer
-          input={input}
-          onInputChange={setInput}
-          onSend={handleSend}
-          onClear={clearMessages}
-          onKeyDown={handleKeyDown}
-        />
+        {!isSettingsView && (
+          <ChatComposer
+            input={input}
+            onInputChange={setInput}
+            onSend={handleSend}
+            onClear={clearMessages}
+            onKeyDown={handleKeyDown}
+          />
+        )}
       </main>
 
       {/* ===================== Inspector ===================== */}
@@ -317,34 +349,36 @@ export default function App() {
           <button
             type="button"
             role="tab"
-            aria-selected="true"
-            className="inspector__tab inspector__tab--active"
+            aria-selected={!isSettingsView}
+            className={
+              'inspector__tab' + (!isSettingsView ? ' inspector__tab--active' : '')
+            }
           >
-            Status
+            {t('inspector.tab.status')}
           </button>
           <button
             type="button"
             role="tab"
-            aria-selected="false"
+            aria-selected={false}
             className="inspector__tab"
             onClick={() => setSection('settings')}
           >
-            Flags
+            {t('inspector.tab.flags')}
           </button>
           <button
             type="button"
             role="tab"
-            aria-selected="false"
+            aria-selected={false}
             className="inspector__tab"
             onClick={() => setSection('dream')}
           >
-            Memory
+            {t('inspector.tab.memory')}
           </button>
         </div>
         <div className="inspector__content">
           <div className="card" style={{ marginBottom: 'var(--space-4)' }}>
             <div className="card__header">
-              <div className="card__title">Runtime</div>
+              <div className="card__title">{t('inspector.card.runtime')}</div>
             </div>
             <div
               style={{
@@ -353,25 +387,25 @@ export default function App() {
                 gap: 'var(--space-2)',
               }}
             >
-              <RuntimeRow label="Phase" value={phase} />
+              <RuntimeRow label={t('inspector.runtime.phase')} value={phase} />
               <RuntimeRow
-                label="Dream Memory"
-                value={flags.DREAM_MEMORY ? 'on' : 'off'}
+                label={t('inspector.runtime.dreamMemory')}
+                value={flags.DREAM_MEMORY ? t('inspector.value.on') : t('inspector.value.off')}
                 tone={flags.DREAM_MEMORY ? 'cyan' : 'muted'}
               />
               <RuntimeRow
-                label="Auto Compact"
-                value={flags.AUTO_COMPACT ? 'on' : 'off'}
+                label={t('inspector.runtime.autoCompact')}
+                value={flags.AUTO_COMPACT ? t('inspector.value.on') : t('inspector.value.off')}
                 tone={flags.AUTO_COMPACT ? 'cyan' : 'muted'}
               />
               <RuntimeRow
-                label="Layered Memory"
-                value={flags.LAYERED_MEMORY ? 'on' : 'off'}
+                label={t('inspector.runtime.layeredMemory')}
+                value={flags.LAYERED_MEMORY ? t('inspector.value.on') : t('inspector.value.off')}
                 tone={flags.LAYERED_MEMORY ? 'cyan' : 'muted'}
               />
               <RuntimeRow
-                label="Session Archive"
-                value={flags.SESSION_ARCHIVE ? 'on' : 'off'}
+                label={t('inspector.runtime.sessionArchive')}
+                value={flags.SESSION_ARCHIVE ? t('inspector.value.on') : t('inspector.value.off')}
                 tone={flags.SESSION_ARCHIVE ? 'cyan' : 'muted'}
               />
             </div>
@@ -379,12 +413,12 @@ export default function App() {
 
           <div className="card" style={{ marginBottom: 'var(--space-4)' }}>
             <div className="card__header">
-              <div className="card__title">Feature Flags</div>
+              <div className="card__title">{t('inspector.card.featureFlags')}</div>
               <span
                 className="pill pill--cyan"
                 style={{ padding: '2px 8px' }}
               >
-                Live
+                {t('inspector.pill.live')}
               </span>
             </div>
             <FeatureFlagsPanel />
@@ -447,23 +481,22 @@ function ChatStream({
     timestamp: number;
   }>;
 }) {
+  const t = useTranslation();
   return (
     <>
       {messages.length === 0 ? (
         <div className="welcome">
           <div className="welcome__eyebrow">
-            <span className="pill__dot" /> Workspace
+            <span className="pill__dot" /> {t('welcome.eyebrow')}
           </div>
           <h1 className="welcome__title">
-            A multi-agent authoring surface that thinks alongside you.
+            {t('welcome.title')}
           </h1>
           <p className="welcome__subtitle">
-            Cross-session Dream memory, layered context compaction, agent
-            canvas, and an evolving writing coach. Start a thread to wake the
-            system.
+            {t('welcome.subtitle')}
           </p>
           <div className="welcome__meta">
-            <span>145 modules wired</span>
+            <span>{t('welcome.meta.modules', { count: 145 })}</span>
             <span>·</span>
             <span>React 19 + Vite 8</span>
             <span>·</span>
@@ -479,23 +512,23 @@ function ChatStream({
             }}
           >
             <QuickAction
-              title="Open Canvas"
-              desc="Sketch agent + phase nodes visually"
+              title={t('welcome.quickAction.openCanvas.title')}
+              desc={t('welcome.quickAction.openCanvas.desc')}
               onClick={() => {/* navigation handled by sidebar */}}
             />
             <QuickAction
-              title="View Dream Memory"
-              desc="Inspect phases, archives, L3 skills"
+              title={t('welcome.quickAction.dreamMemory.title')}
+              desc={t('welcome.quickAction.dreamMemory.desc')}
               onClick={() => {/* navigation handled by sidebar */}}
             />
             <QuickAction
-              title="Launch Writing Coach"
-              desc="Analyze style, suggest rewrites"
+              title={t('welcome.quickAction.writingCoach.title')}
+              desc={t('welcome.quickAction.writingCoach.desc')}
               onClick={() => {/* navigation handled by sidebar */}}
             />
             <QuickAction
-              title="Toggle Feature Flags"
-              desc="Configure experimental subsystems"
+              title={t('welcome.quickAction.featureFlags.title')}
+              desc={t('welcome.quickAction.featureFlags.desc')}
               onClick={() => {/* navigation handled by sidebar */}}
             />
           </div>
@@ -513,7 +546,7 @@ function ChatStream({
               <div className="message__bubble">
                 <div className="message__meta">
                   <span className="message__role">
-                    {msg.role === 'user' ? 'You' : 'Assistant'}
+                    {msg.role === 'user' ? t('composer.role.you') : t('composer.role.assistant')}
                   </span>
                   <span>·</span>
                   <span>
@@ -593,6 +626,7 @@ function ChatComposer({
   onClear: () => void;
   onKeyDown: (e: React.KeyboardEvent) => void;
 }) {
+  const t = useTranslation();
   return (
     <div className="chat-composer">
       <div className="chat-composer__inner">
@@ -601,12 +635,12 @@ function ChatComposer({
           value={input}
           onChange={(e) => onInputChange(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder="Type a message, press Enter to send, Shift+Enter for newline"
+          placeholder={t('composer.placeholder')}
           rows={1}
         />
         <div className="chat-composer__actions">
           <button type="button" className="btn btn--ghost btn--sm" onClick={onClear}>
-            Clear
+            {t('composer.action.clear')}
           </button>
           <button
             type="button"
@@ -614,7 +648,7 @@ function ChatComposer({
             onClick={onSend}
             disabled={!input.trim()}
           >
-            Send
+            {t('composer.action.send')}
           </button>
         </div>
       </div>
