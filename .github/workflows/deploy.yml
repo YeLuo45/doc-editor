@@ -2,22 +2,19 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches:
-      - feature/v1-dream-memory
-      - feature/v4-dream-memory
-      - feature/v5-offline-sync
-      - feature/v6-agent-canvas
+    branches: [master, feature/v145-convolver, master-v153-deploy]
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
-      - run: npx tsc --noEmit || true
       - run: node ./node_modules/.bin/vite build
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
