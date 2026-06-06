@@ -179,9 +179,15 @@ describe('ConvolverRegistry', () => {
   });
 
   test('should get registry stats', () => {
-    registry.register(new Convolver({ id: 'c1', name: 'Conv1', enabled: true, timeout: 1000, maxIterations: 10 }));
-    registry.register(new Convolver({ id: 'c2', name: 'Conv2', enabled: false, timeout: 1000, maxIterations: 10 }));
-    const stats = registry.getStats();
+    const localConfig: RegistryConfig = {
+      maxConvolvers: 10,
+      allowDuplicateNames: false,
+      autoEnable: false
+    };
+    const localRegistry = new ConvolverRegistry(localConfig);
+    localRegistry.register(new Convolver({ id: 'c1', name: 'Conv1', enabled: true, timeout: 1000, maxIterations: 10 }));
+    localRegistry.register(new Convolver({ id: 'c2', name: 'Conv2', enabled: false, timeout: 1000, maxIterations: 10 }));
+    const stats = localRegistry.getStats();
     expect(stats.totalConvolvers).toBe(2);
     expect(stats.enabledConvolvers).toBe(1);
   });
@@ -193,6 +199,7 @@ describe('ConvolverRegistry', () => {
 
   test('should reset all metrics', () => {
     registry.register(new Convolver({ id: 'c1', name: 'Conv1', enabled: true, timeout: 1000, maxIterations: 10 }));
+    registry.register(new Convolver({ id: 'c2', name: 'Conv2', enabled: true, timeout: 1000, maxIterations: 10 }));
     registry.reset();
     const stats = registry.getStats();
     expect(stats.totalConvolvers).toBe(2); // Convolvers remain, only metrics reset
