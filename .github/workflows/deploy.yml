@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [master, feature/v145-convolver, feature/v155-direction-a-writing-mind, feature/v185-direction-b-agent-forge, master-v153-deploy]
+    branches: [master, feature/v145-convolver, feature/v155-direction-a-writing-mind, feature/v185-direction-b-agent-forge, feature/v215-direction-c-doc-federation, feature/v245-direction-d-perf-compression, master-v153-deploy]
   workflow_dispatch:
 
 permissions:
